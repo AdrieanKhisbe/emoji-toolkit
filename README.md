@@ -3,6 +3,7 @@
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-blue)](pyproject.toml)
 [![CI](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml/badge.svg)](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml)
 [![Status: in development](https://img.shields.io/badge/status-in_development-yellow)](https://github.com/AdrieanKhisbe/emoji-toolkit/issues)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 > Get emoji images or data URLs from your terminal for notifications, scripts, and everyday tools. :fishing_pole_and_fish:
 
@@ -107,3 +108,8 @@ poetry run poe test
 
 Have a bug or an idea? [Open an issue](https://github.com/AdrieanKhisbe/emoji-toolkit/issues).
 For artwork problems, include the emoji and vendor.
+
+## License
+
+Project code is licensed under [MIT](LICENSE). Vendor artwork retains its
+respective copyrights and licenses; see [Emojipedia's licensing guide](https://emojipedia.org/licensing).

@@ -10,7 +10,7 @@ Things to do in the repo reforge
 - [x] dataset in resources
 - [x] spec the cli (install and display) — [agreed specification](docs/cli-spec.md)
 - [x] implement the cli — [commands](docs/cli.md), [resource releases](docs/resource-releases.md)
-- [ ] review docs folder and README
+- [ ] review docs folder and README (disclammer dev )
 - [ ] Update the name
 - [ ] See the licence
 - [ ] Check the packaging
@@ -53,3 +53,7 @@ Extra:
 - une option `--size` pourrait etre introduit dans un second temps pour les dataurls. avec encodage à la volée
 - ptetre que dans un second temps des customs emoji seront supportée
 - possibilité de supprimer un vendor
+- install no option install the OS, avec un disclaming default xwarning or validation
+- improved list with emoji or not
+- autocompletion utils
+- `--use-as-default` for vendor install
