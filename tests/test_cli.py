@@ -19,6 +19,14 @@ def png(color="red"):
     return output.getvalue()
 
 
+def corrupt_png_crc(data):
+    corrupted = bytearray(data)
+    chunk = corrupted.index(b"IDAT")
+    length = int.from_bytes(corrupted[chunk - 4 : chunk], "big")
+    corrupted[chunk + 4 + length] ^= 1
+    return bytes(corrupted)
+
+
 @pytest.fixture
 def resources(tmp_path):
     dataset = tmp_path / "dataset"
@@ -315,14 +323,13 @@ def tamper_bundle(folder, corruption):
     path = folder / "apple.zip"
     with zipfile.ZipFile(path) as archive:
         files = {name: archive.read(name) for name in archive.namelist()}
-    if corruption == "gif":
+    if corruption in {"gif", "png-crc"}:
         stream = io.BytesIO()
         Image.new("RGB", (2, 2)).save(stream, format="GIF")
-        files["images/grinning_face.png"] = stream.getvalue()
+        image = stream.getvalue() if corruption == "gif" else corrupt_png_crc(png())
+        files["images/grinning_face.png"] = image
         metadata = json.loads(files["vendor.json"])
-        metadata["records"]["1f600"]["sha256"] = hashlib.sha256(
-            stream.getvalue()
-        ).hexdigest()
+        metadata["records"]["1f600"]["sha256"] = hashlib.sha256(image).hexdigest()
         files["vendor.json"] = json.dumps(metadata).encode()
     elif corruption == "checksum":
         files["images/grinning_face.png"] = png("black")
@@ -356,7 +363,8 @@ def tamper_bundle(folder, corruption):
 
 
 @pytest.mark.parametrize(
-    "corruption", ["gif", "checksum", "unsafe", "identity", "schema", "preview"]
+    "corruption",
+    ["gif", "png-crc", "checksum", "unsafe", "identity", "schema", "preview"],
 )
 def test_invalid_update_preserves_previous_vendor_and_continues_batch(
     resources, tmp_path, terminal, releases, corruption
@@ -839,9 +847,13 @@ def test_local_source_fetches_only_pinned_aliases_when_omitted(
     assert invoke(terminal, "install", "--aliases", str(aliases)).exit_code == 2
 
 
-def test_local_source_keeps_successful_vendors_after_failure(resources, terminal):
+@pytest.mark.parametrize("corruption", ["unrecognized", "png-crc"])
+def test_local_source_keeps_successful_vendors_after_failure(
+    resources, terminal, corruption
+):
     dataset, aliases = resources
-    (dataset / "images/apple/grinning face.png").write_bytes(b"broken")
+    image = corrupt_png_crc(png()) if corruption == "png-crc" else b"broken"
+    (dataset / "images/apple/grinning face.png").write_bytes(image)
     result = invoke(
         terminal,
         "install",
@@ -855,6 +867,7 @@ def test_local_source_keeps_successful_vendors_after_failure(resources, terminal
         str(aliases),
     )
     assert result.exit_code != 0
+    assert "Invalid PNG artwork" in result.stderr
     assert "google:" in invoke(terminal, "status").stdout
     assert Path(invoke(terminal, "grinning").stdout.strip()).read_bytes() == png("blue")
 

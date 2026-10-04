@@ -14,9 +14,9 @@ Pick a vendor, look up a shortcode, and use the artwork anywhere.
 Requires Python 3.11+ and `uv` or `pipx`.
 
 ```sh
-uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git
+uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 # Or use pipx:
-pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git
+pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 
 emoji install --vendor apple
 ```

@@ -51,14 +51,17 @@ def filename(value: str) -> str:
 
 
 def validate_png(data: bytes, preview: bool = False) -> None:
-    with Image.open(io.BytesIO(data)) as image:
-        if image.format != "PNG":
-            raise ValueError("Artwork must contain genuine PNG data")
-        if preview and max(image.size) > 72:
-            raise ValueError("Preview must fit within 72×72 pixels")
-        image.verify()
-    with Image.open(io.BytesIO(data)) as image:
-        image.load()
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            if image.format != "PNG":
+                raise ValueError("Artwork must contain genuine PNG data")
+            if preview and max(image.size) > 72:
+                raise ValueError("Preview must fit within 72×72 pixels")
+            image.verify()
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+    except (OSError, SyntaxError, Image.DecompressionBombError) as error:
+        raise ValueError(f"Invalid PNG artwork: {error}") from error
 
 
 def preview_bytes(url: str) -> bytes:

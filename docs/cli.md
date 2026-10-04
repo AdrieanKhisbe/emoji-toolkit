@@ -3,12 +3,11 @@
 Install the program with Python 3.11+ through either tool:
 
 ```sh
-uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git
+uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 # or
-pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git
+pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 ```
 
-Until this branch is merged, append `@regeneration` to the Git URL.
 Artwork installation requires a published compatible immutable resource release;
 see [resource releases](resource-releases.md) for the manual publishing procedure.
 For local testing, install directly from the source dataset instead:
