@@ -1,0 +1,42 @@
+# Local editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local temporary and private files
+/tmp/
+/private/
+
+# Python environments and bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Python build artifacts
+/build/
+/dist/
+*.egg-info/
+
+# Test, type-checker, and linter caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+/.cache/emoji-dataset/
+/.dataset-refresh.lock
+/.dataset-refresh-*/
+/.dataset-previous/
+
+# Dataset images, JSON, and dependency lockfiles remain versioned.
+
+# Staging and recovery files beside the default dataset directory
+/resources/.dataset-refresh.lock
+/resources/.dataset-refresh-*/
+/resources/.dataset-previous/

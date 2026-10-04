@@ -1,0 +1,71 @@
+[project]
+name = "emoji"
+version = "0.1.0"
+description = "Get emoji images or data URLs from your terminal for notifications, scripts, and everyday tools."
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "requests>=2.32,<3.0",
+    "pillow (>=12.3.0,<13.0.0)",
+    "click>=8.2,<9",
+]
+
+[project.scripts]
+emoji = "emoji_dataset.cli:cli"
+
+[build-system]
+requires = ["poetry-core>=2.0,<3.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{include = "emoji_dataset", from = "src"}]
+requires-poetry = ">=2.0"
+
+[tool.poetry.group.dev.dependencies]
+poethepoet = "^0.48.0"
+pytest = "^9.1.1"
+mypy = "^1.15"
+types-requests = "^2.32"
+graphql-core = {version = ">=3.2,<3.3", python = ">=3.11,<4"}
+black = "^26.5.1"
+
+[tool.mypy]
+files = ["src/emoji_dataset"]
+check_untyped_defs = true
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.poe.tasks.format]
+cmd = "python -m black src tests"
+help = "Format Python source and tests with Black."
+
+[tool.poe.tasks.format-check]
+cmd = "python -m black --check src tests"
+help = "Check Python formatting without changing files."
+
+[tool.poe.tasks.typecheck]
+cmd = "python -m mypy"
+help = "Check CLI and bundle builder types."
+
+[tool.poe.tasks.build-bundles]
+cmd = "python -m emoji_dataset.bundles"
+help = "Build vendor resource archives for a manual GitHub release."
+
+[tool.poe.tasks.local-install]
+cmd = "emoji install --vendor apple --local-override resources/dataset"
+help = "Install Apple artwork from the local source dataset."
+
+[tool.poe.tasks.regenerate]
+cmd = "python src/generate_emoji_dataset.py"
+help = "Refresh the Unicode index and vendor artwork from Emojipedia."
+
+[tool.poe.tasks.test]
+cmd = "python -m pytest -v"
+help = "Test regeneration with simulated HTTP sources and temporary datasets."
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
