@@ -25,6 +25,7 @@ an installed vendor. `--local-override` cannot be combined with `--release`.
 ```sh
 emoji install --vendor apple
 emoji grinning                         # absolute original PNG path
+emoji get :satisfied:                   # explicit lookup (alias of lookup)
 emoji :grinning: --url                  # PNG preview data URL, at most 72×72
 emoji --url grinning                    # options may precede the shortcode
 emoji grinning --data-url               # alias for --url
@@ -38,6 +39,8 @@ Shortcodes follow GitHub aliases; surrounding colons are optional and hyphens
 and underscores are equivalent. Names, literal emojis, and Unicode notation
 are not accepted. Surround command words with colons to look them up as aliases:
 `emoji :install:`. A missing alias or artwork returns a nonzero exit code.
+`emoji get SHORTCODE` and `emoji lookup SHORTCODE` accept the same options as
+`emoji SHORTCODE`.
 Diagnostics and prompts go to stderr; lookup prints only its result to stdout.
 
 ```sh

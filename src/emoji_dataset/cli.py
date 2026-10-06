@@ -104,6 +104,10 @@ def cli() -> None:
     """Emoji artwork for terminal tools. Lookup: emoji SHORTCODE [OPTIONS]."""
 
 
+cli.add_command(lookup)
+cli.add_command(lookup, "get")
+
+
 @cli.command()
 @click.option("--vendor", multiple=True, type=click.Choice(VENDORS))
 @click.option("--release", "tag")

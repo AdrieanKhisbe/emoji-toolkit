@@ -33,6 +33,11 @@ def resources(tmp_path):
     (dataset / "vendors").mkdir(parents=True)
     entries = [
         {"unicode": ["U+1F600"], "name": "grinning face", "cldr_name": "grinning face"},
+        {
+            "unicode": ["U+1F606"],
+            "name": "grinning squinting face",
+            "cldr_name": "grinning squinting face",
+        },
         {"unicode": ["U+1F44B"], "name": "waving hand", "cldr_name": "waving hand"},
         {
             "unicode": ["U+1F44B", "U+1F3FF"],
@@ -66,6 +71,7 @@ def resources(tmp_path):
         json.dumps(
             [
                 {"emoji": "😀", "aliases": ["grinning", "happy_face", "install"]},
+                {"emoji": "😆", "aliases": ["laughing", "satisfied"]},
                 {"emoji": "👋", "aliases": ["wave"]},
                 {"emoji": "👋🏿", "aliases": ["dark_wave"]},
             ]
@@ -204,6 +210,28 @@ def test_install_then_lookup_is_offline_and_returns_original_and_preview(
     assert invoke(terminal, "grinning", "--data-url").stdout == url.stdout
 
 
+@pytest.mark.parametrize("command", ["get", "lookup"])
+def test_explicit_lookup_after_fresh_install(
+    command, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    installed = invoke(terminal, "install", "--vendor", "apple")
+    assert installed.exit_code == 0, installed.output
+    releases.responses.clear()
+
+    result = invoke(terminal, command, ":satisfied:")
+    assert result.exit_code == 0, result.output
+    image = Path(result.stdout.strip())
+    assert image.name == "grinning_squinting_face.png"
+    assert image.read_bytes() == png()
+    assert result.stdout == invoke(terminal, ":satisfied:").stdout
+    preview = invoke(terminal, "satisfied", "--url")
+    for args in [(command, "satisfied", "--url"), (command, "--url", "satisfied")]:
+        result = invoke(terminal, *args)
+        assert result.exit_code == 0, result.output
+        assert result.stdout == preview.stdout
+
+
 def test_preferences_tones_listing_and_reserved_words(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
@@ -234,7 +262,13 @@ def test_preferences_tones_listing_and_reserved_words(
     assert "google" in invoke(terminal, "status").stdout
     assert "resources-v1" in invoke(terminal, "status").stdout
     listed = invoke(terminal, "list", "GRINNING")
-    assert listed.stdout.splitlines() == ["grinning", "happy_face", "install"]
+    assert listed.stdout.splitlines() == [
+        "grinning",
+        "happy_face",
+        "install",
+        "laughing",
+        "satisfied",
+    ]
     assert invoke(terminal, ":install:").stdout == invoke(terminal, "grinning").stdout
     for alias in ("😀", "U+1F600", "grinning face"):
         assert invoke(terminal, alias).exit_code != 0
@@ -614,7 +648,7 @@ def test_missing_vendor_artwork_never_falls_back(
     )
     result = invoke(terminal, "grinning", "--vendor", "google")
     assert result.exit_code != 0 and result.stdout == "" and "google" in result.stderr
-    assert invoke(terminal, "list", "grinning", "--vendor", "google").stdout == ""
+    assert invoke(terminal, "list", "happy_face", "--vendor", "google").stdout == ""
 
 
 def test_corrupt_index_rejects_install_with_actionable_error(
