@@ -1,6 +1,6 @@
 # Emoji Toolkit
 
-[![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-blue)](pyproject.toml)
+[![PyPI version](https://img.shields.io/pypi/v/emoji-toolkit)](https://pypi.org/project/emoji-toolkit/)
 [![CI](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml/badge.svg)](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml)
 [![Status: in development](https://img.shields.io/badge/status-in_development-yellow)](https://github.com/AdrieanKhisbe/emoji-toolkit/issues)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -14,9 +14,11 @@ Pick a vendor, look up a shortcode, and use the artwork anywhere.
 Requires Python 3.11+ and `uv` or `pipx`.
 
 ```sh
-uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
+uv tool install emoji-toolkit
 # Or use pipx:
-pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
+pipx install emoji-toolkit
+# Or use pip
+pip install emoji-toolkit
 
 emoji install --vendor apple
 ```
