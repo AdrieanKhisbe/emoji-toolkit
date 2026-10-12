@@ -139,6 +139,11 @@ cli.add_command(lookup, "get")
 @click.option("--all", "all_vendors", is_flag=True)
 @click.option("--update", is_flag=True)
 @click.option(
+    "--use-as-default",
+    is_flag=True,
+    help="Set the single selected vendor as default after successful installation.",
+)
+@click.option(
     "--local-override",
     "--local-overidde",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -154,6 +159,7 @@ def install(
     tag: str | None,
     all_vendors: bool,
     update: bool,
+    use_as_default: bool,
     local_override: Path | None,
     aliases: Path | None,
 ) -> None:
@@ -183,6 +189,8 @@ def install(
                     )
         if not selected:
             raise ValueError("Select a vendor: emoji install --vendor apple")
+        if use_as_default and len(selected) != 1:
+            raise click.UsageError("--use-as-default requires exactly one vendor")
         pending = []
         for name in selected:
             if name in installed and not update:
@@ -193,6 +201,8 @@ def install(
             else:
                 pending.append(name)
         if not pending:
+            if use_as_default:
+                save_preference("vendor", selected[0])
             return
         client = ReleaseClient()
         local = None
@@ -253,6 +263,8 @@ def install(
                 click.echo(f"❌ {name}: {error}", err=True)
         if failures:
             raise ValueError("Installation failed for: " + ", ".join(failures))
+        if use_as_default:
+            save_preference("vendor", selected[0])
 
 
 @cli.group()

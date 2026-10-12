@@ -24,6 +24,7 @@ an installed vendor. `--local-override` cannot be combined with `--release`.
 
 ```sh
 emoji install --vendor apple
+emoji install --vendor google --use-as-default  # install and select the default
 emoji grinning                          # absolute original PNG path
 emoji get :satisfied:                   # explicit lookup (alias of lookup)
 emoji :grinning: --url                  # PNG preview data URL, at most 72×72
@@ -71,6 +72,13 @@ with Apple. Select artwork using `--vendor`, then `EMOJI_VENDOR`, then the saved
 default, in that order. Vendors are never substituted automatically. Installing
 an existing vendor does nothing unless `--update` is given. Without arguments,
 noninteractive installation fails with setup instructions.
+
+Use `install --use-as-default` with exactly one selected vendor to save it as
+the default after successful installation. It also works for an already
+installed vendor without downloading or requiring `--update`. Other preferences
+are preserved. Multiple selections, including `--all` or an update of several
+installed vendors, are rejected before installation. A failed installation or
+update preserves the previous default. Without the flag, defaults are unchanged.
 
 Skin tones are `none`, `light`, `medium-light`, `medium`, `medium-dark`, and `dark`.
 A toned shortcode overrides the saved tone; an explicit `--skin-tone` overrides

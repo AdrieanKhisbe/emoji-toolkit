@@ -56,4 +56,5 @@ The user confirmed shared understanding in Q31. The v1 specification is agreed; 
 
 ## Subsequent feature agreements
 
+- [Issue #3](https://github.com/AdrieanKhisbe/emoji-toolkit/issues/3) adds `install --use-as-default` for exactly one selected vendor. Save the default only after installation or update succeeds; also allow selecting an already installed vendor without an update or download. Reject multiple-vendor selections and preserve other preferences. Without the flag, retain existing default-selection behavior.
 - [Issue #2](https://github.com/AdrieanKhisbe/emoji-toolkit/issues/2) supersedes the original deferral of configurable preview sizes. `--size N` accepts integers from 1 to 1024 with `--url` or `--data-url`, generating a PNG from original artwork that fits within N×N pixels and preserves proportions and transparency. Do not enlarge artwork; warn on stderr when the request exceeds original dimensions. Reject `--size` without URL output or with `--url-file`. Omitted size retains the existing saved preview, and no installed artwork or preview files are modified.

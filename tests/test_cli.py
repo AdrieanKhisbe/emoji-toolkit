@@ -621,6 +621,138 @@ def test_install_selection_and_first_success_default(
     assert "google: resources-v1 (default)" in invoke(terminal, "status").stdout
 
 
+@pytest.mark.parametrize("local", [False, True])
+@pytest.mark.parametrize("use_default", [False, True])
+def test_install_can_explicitly_select_default(
+    local, use_default, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
+    args = ["install", "--vendor", "google"]
+    if local:
+        args += ["--local-override", str(resources[0]), "--aliases", str(resources[1])]
+        releases.responses.clear()
+    if use_default:
+        args += ["--use-as-default"]
+    result = invoke(terminal, *args)
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    preferences = invoke(terminal, "config", "show").stdout
+    assert f"vendor: {'google' if use_default else 'apple'}" in preferences
+    assert "skin-tone: dark" in preferences
+    assert (
+        f"/{'google' if use_default else 'apple'}/" in invoke(terminal, "wave").stdout
+    )
+
+
+def test_select_existing_default_without_downloading_or_updating(
+    resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    before = Store().installed()
+    releases.responses.clear()
+    result = invoke(terminal, "install", "--vendor", "google", "--use-as-default")
+    assert result.exit_code == 0, result.output
+    assert "already installed" in result.stderr
+    assert result.stdout == ""
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    assert Store().installed() == before
+
+
+def test_first_install_and_successful_update_can_set_default(
+    resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    result = invoke(terminal, "install", "--vendor", "apple", "--use-as-default")
+    assert result.exit_code == 0, result.output
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+    assert (
+        invoke(terminal, "install", "--vendor", "google", "--use-as-default").exit_code
+        == 0
+    )
+    releases(build(resources, tmp_path, "resources-v2"))
+    result = invoke(
+        terminal, "install", "--vendor", "apple", "--update", "--use-as-default"
+    )
+    assert result.exit_code == 0, result.output
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+    assert "apple: resources-v2 (default)" in invoke(terminal, "status").stdout
+
+
+@pytest.mark.parametrize("answer,exit_code", [("google", 0), ("google,apple", 2)])
+def test_interactive_install_default_requires_single_selection(
+    answer, exit_code, resources, tmp_path, terminal, releases, monkeypatch
+):
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    releases(build(resources, tmp_path))
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    result = terminal.invoke(cli, ["install", "--use-as-default"], input=answer + "\n")
+    assert result.exit_code == exit_code, result.output
+    if exit_code == 0:
+        assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    else:
+        assert "exactly one vendor" in result.stderr
+        assert "No vendors installed" in invoke(terminal, "status").stderr
+
+
+@pytest.mark.parametrize("update", [False, True])
+def test_failed_install_does_not_change_requested_default(
+    update, resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    vendors = ["--vendor", "google"]
+    if update:
+        vendors += ["--vendor", "apple"]
+    assert invoke(terminal, "install", *vendors).exit_code == 0
+    assert invoke(terminal, "config", "set", "vendor", "google").exit_code == 0
+    before = Store().config.read_bytes()
+    next_release = build(resources, tmp_path, "resources-v2")
+    tamper_bundle(next_release, "png-crc")
+    releases(next_release)
+    args = ["install", "--vendor", "apple", "--use-as-default"]
+    if update:
+        args += ["--update"]
+    result = invoke(terminal, *args)
+    assert result.exit_code != 0 and "apple" in result.stderr
+    assert Store().config.read_bytes() == before
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [("--all",), ("--vendor", "apple", "--vendor", "google"), ("--update",)],
+)
+def test_default_install_rejects_multiple_selected_vendors(
+    selection, resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    before = Store().installed()
+    releases.responses.clear()
+    result = invoke(terminal, "install", *selection, "--use-as-default")
+    assert result.exit_code == 2, result.output
+    assert "exactly one vendor" in result.stderr
+    assert result.stdout == ""
+    assert Store().installed() == before
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+
+
 def test_publication_failure_rolls_back_old_artwork(
     resources, tmp_path, terminal, releases, monkeypatch
 ):

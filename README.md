@@ -47,6 +47,7 @@ Your first installed vendor becomes the default. Change it or save a skin tone:
 
 ```sh
 emoji config set vendor apple
+emoji install --vendor google --use-as-default  # install and choose the default
 emoji config set skin-tone dark
 emoji install --update                 # refresh installed artwork
 emoji status                           # show installed vendors and versions
