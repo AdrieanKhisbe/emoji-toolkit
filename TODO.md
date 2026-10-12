@@ -48,12 +48,13 @@ The cli should do two main things:
 Notes:
 - utiliser la lib `click` sauf si une meilleur est proposée
 - utilise des emojis pour décorer les messages et prompts
+- ajouter utilitaire et exemple d'usage (viu, ascii-image-converter, notify)
 
 Extra:
 - une option `--size` pourrait etre introduit dans un second temps pour les dataurls. avec encodage à la volée
-- ptetre que dans un second temps des customs emoji seront supportée
-- possibilité de supprimer un vendor
-- install no option install the OS, avec un disclaming default xwarning or validation
-- improved list with emoji or not
-- autocompletion utils
 - `--use-as-default` for vendor install
+- install no option install the OS, avec un disclaming default xwarning or validation. (`setup` alias)
+- possibilité de supprimer un vendor (uninstall)
+- improved list with emoji or not (just slug (with or without colon))
+- autocompletion utils for the program
+- ptetre que dans un second temps des customs emoji seront supportée

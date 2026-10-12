@@ -53,3 +53,7 @@ Defer vendor removal, custom emojis, configurable image sizes, interactive picki
 ## Final confirmation
 
 The user confirmed shared understanding in Q31. The v1 specification is agreed; implementation remains a separate TODO step. This confirmation does not authorize a commit or publication.
+
+## Subsequent feature agreements
+
+- [Issue #2](https://github.com/AdrieanKhisbe/emoji-toolkit/issues/2) supersedes the original deferral of configurable preview sizes. `--size N` accepts integers from 1 to 1024 with `--url` or `--data-url`, generating a PNG from original artwork that fits within N×N pixels and preserves proportions and transparency. Do not enlarge artwork; warn on stderr when the request exceeds original dimensions. Reject `--size` without URL output or with `--url-file`. Omitted size retains the existing saved preview, and no installed artwork or preview files are modified.

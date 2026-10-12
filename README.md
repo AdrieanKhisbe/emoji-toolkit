@@ -30,6 +30,7 @@ emoji smiley                         # original PNG path
 # /Users/ak/.local/share/emojies/vendors/apple/grinning_face_with_big_eyes.png
 emoji smiley --url                   # PNG preview data URL
 # data:image/png;base64,iVBOR.....RK5CYII=
+emoji smiley --url --size 128         # generate a preview within 128×128
 
 emoji wave --skin-tone dark          # choose a skin tone
 emoji smiley --vendor google         # choose a vendor
@@ -39,7 +40,8 @@ emoji list hand                      # discover shortcodes
 
 Shortcodes follow GitHub aliases. Colons are optional: `smiley` and
 `:smiley:` work the same way. 😃
-Paths point to original images; data URLs contain small previews, up to 72×72 pixels.
+Paths point to original images; data URLs default to previews up to 72×72 pixels.
+Use `--size 1–1024` with `--url` to choose a preview size; original artwork is never enlarged.
 
 Your first installed vendor becomes the default. Change it or save a skin tone:
 

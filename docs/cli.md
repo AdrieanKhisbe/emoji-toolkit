@@ -24,12 +24,13 @@ an installed vendor. `--local-override` cannot be combined with `--release`.
 
 ```sh
 emoji install --vendor apple
-emoji grinning                         # absolute original PNG path
+emoji grinning                          # absolute original PNG path
 emoji get :satisfied:                   # explicit lookup (alias of lookup)
 emoji :grinning: --url                  # PNG preview data URL, at most 72×72
 emoji --url grinning                    # options may precede the shortcode
 emoji grinning --data-url               # alias for --url
-emoji grinning --url-file               # path to a file containing the URL
+emoji grinning --url --size 128         # on-demand preview within 128×128
+emoji :wink: --url-file                 # path to a file containing the URL
 emoji wave --skin-tone dark
 emoji list hand
 emoji status
@@ -42,6 +43,14 @@ are not accepted. Surround command words with colons to look them up as aliases:
 `emoji get SHORTCODE` and `emoji lookup SHORTCODE` accept the same options as
 `emoji SHORTCODE`.
 Diagnostics and prompts go to stderr; lookup prints only its result to stdout.
+
+Use `--size N` with `--url` or `--data-url` to generate a PNG preview from the
+original artwork on demand. Sizes must be integers from 1 to 1024. Previews fit
+within N×N pixels, preserving proportions and transparency. Small originals are
+never enlarged; a larger requested size produces a warning on stderr and keeps
+the original dimensions. Original images and saved previews remain unchanged.
+Without `--size`, data URLs use the existing preview, at most 72×72 pixels.
+`--size` requires a URL output option and cannot be used with `--url-file`.
 
 ```sh
 emoji install                          # interactive comma-separated vendor selection

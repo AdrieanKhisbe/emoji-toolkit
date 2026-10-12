@@ -12,7 +12,7 @@ import requests
 
 from .downloads import ReleaseClient
 from .local import GEMOJI_URL, LocalDataset
-from .format import TONES, VENDORS, shortcode
+from .format import TONES, VENDORS, shortcode, sized_data_url
 from .store import Store, atomic_json
 
 
@@ -38,11 +38,26 @@ def operation(*, write: bool = False, lock: bool = True) -> Iterator[Store]:
 @click.option("--vendor", type=click.Choice(VENDORS))
 @click.option("--url", "--data-url", "as_url", is_flag=True)
 @click.option("--url-file", is_flag=True)
+@click.option(
+    "--size",
+    type=click.IntRange(1, 1024),
+    help="Fit an on-demand PNG preview within SIZE×SIZE pixels (requires --url).",
+)
 @click.option("--skin-tone", type=click.Choice(TONES))
 def lookup(
-    alias: str, vendor: str | None, as_url: bool, url_file: bool, skin_tone: str | None
+    alias: str,
+    vendor: str | None,
+    as_url: bool,
+    url_file: bool,
+    size: int | None,
+    skin_tone: str | None,
 ) -> None:
     """Print an absolute PNG path (or preview URL) for a GitHub shortcode."""
+    if size is not None:
+        if url_file:
+            raise click.UsageError("--size cannot be combined with --url-file")
+        if not as_url:
+            raise click.UsageError("--size requires --url or --data-url")
     if as_url and url_file:
         raise click.UsageError("Choose either --url or --url-file")
     with operation() as store:
@@ -67,13 +82,23 @@ def lookup(
         if key not in records:
             raise ValueError(f"No {vendor} artwork for {alias}.")
         path = store.data / "vendors" / vendor / records[key]["filename"]
-        if as_url or url_file:
+        if size is None and (as_url or url_file):
             path = path.with_suffix(".url")
         if not path.is_file():
             raise ValueError(
                 f"Missing artwork. Run emoji install --vendor {vendor} --update."
             )
-        click.echo(path.read_text() if as_url else str(path))
+        if size is not None:
+            url, dimensions = sized_data_url(path, size)
+            if size > max(dimensions):
+                click.echo(
+                    f"⚠️ Requested size {size} exceeds original artwork "
+                    f"({dimensions[0]}×{dimensions[1]}); keeping original dimensions.",
+                    err=True,
+                )
+            click.echo(url)
+        else:
+            click.echo(path.read_text() if as_url else str(path))
 
 
 class EmojiGroup(click.Group):

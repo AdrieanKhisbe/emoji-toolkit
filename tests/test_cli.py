@@ -232,6 +232,90 @@ def test_explicit_lookup_after_fresh_install(
         assert result.stdout == preview.stdout
 
 
+@pytest.fixture
+def sized_artwork(resources):
+    dataset, _ = resources
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    original = Path(records[0]["image_path"])
+    Image.new("RGBA", (160, 80), (100, 20, 40, 128)).save(original)
+    records[0]["source"]["sha256"] = hashlib.sha256(original.read_bytes()).hexdigest()
+    records_path.write_text(json.dumps(records))
+    return original.read_bytes()
+
+
+@pytest.mark.parametrize("command", [(), ("get",), ("lookup",)])
+@pytest.mark.parametrize("url_flag", ["--url", "--data-url"])
+def test_sized_preview_uses_original_offline(
+    command, url_flag, sized_artwork, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    original = Path(invoke(terminal, "grinning").stdout.strip())
+    saved_preview = original.with_suffix(".url").read_bytes()
+
+    for args in [
+        (*command, "grinning", url_flag, "--size", "128"),
+        (*command, "--size", "128", url_flag, "grinning"),
+    ]:
+        result = invoke(terminal, *args)
+        assert result.exit_code == 0, result.output
+        assert result.stderr == ""
+        prefix, payload = result.stdout.strip().split(",", 1)
+        assert prefix == "data:image/png;base64"
+        with Image.open(io.BytesIO(base64.b64decode(payload, validate=True))) as image:
+            assert image.format == "PNG"
+            assert image.size == (128, 64)
+            assert image.getpixel((64, 32))[3] == 128
+    assert original.read_bytes() == sized_artwork
+    assert original.with_suffix(".url").read_bytes() == saved_preview
+    assert (
+        invoke(terminal, "grinning", "--url").stdout.strip().encode() == saved_preview
+    )
+
+    # A requested size is generated from the original, not the saved preview.
+    original.with_suffix(".url").unlink()
+    result = invoke(terminal, *command, "grinning", url_flag, "--size", "128")
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize(
+    "size,dimensions,warn", [(1, (1, 1), False), (1024, (160, 80), True)]
+)
+def test_preview_size_bounds_and_no_upscaling(
+    size, dimensions, warn, sized_artwork, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    result = invoke(terminal, "grinning", "--url", "--size", str(size))
+    assert result.exit_code == 0, result.output
+    with Image.open(
+        io.BytesIO(base64.b64decode(result.stdout.split(",", 1)[1]))
+    ) as image:
+        assert image.size == dimensions
+    assert bool(result.stderr) == warn
+    if warn:
+        assert "160×80" in result.stderr and "1024" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "args,message",
+    [
+        (("--url", "--size", "0"), "1<=x<=1024"),
+        (("--url", "--size", "1025"), "1<=x<=1024"),
+        (("--url", "--size", "1.5"), "integer"),
+        (("--size", "128"), "requires --url"),
+        (("--url-file", "--size", "128"), "--url-file"),
+    ],
+)
+def test_invalid_preview_size_options_fail_before_lookup(terminal, args, message):
+    result = invoke(terminal, "grinning", *args)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert message in result.stderr
+
+
 def test_preferences_tones_listing_and_reserved_words(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
