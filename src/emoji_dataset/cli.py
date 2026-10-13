@@ -2,6 +2,7 @@
 
 from contextlib import ExitStack, contextmanager, nullcontext
 import sys
+import platform
 import tempfile
 from pathlib import Path
 import zipfile
@@ -133,6 +134,17 @@ cli.add_command(lookup)
 cli.add_command(lookup, "get")
 
 
+def pick_vendors() -> list[str]:
+    if not sys.stdin.isatty():
+        raise ValueError("Select a vendor: emoji install --vendor apple")
+    click.echo("📦 Available vendors: " + ", ".join(VENDORS), err=True)
+    answer = click.prompt("Select vendors (comma-separated)", err=True)
+    selected = list(dict.fromkeys(part.strip() for part in answer.split(",")))
+    if any(name not in VENDORS for name in selected):
+        raise ValueError("Choose vendor identifiers from the displayed list")
+    return selected
+
+
 @cli.command()
 @click.option("--vendor", multiple=True, type=click.Choice(VENDORS))
 @click.option("--release", "tag")
@@ -178,15 +190,7 @@ def install(
             if update:
                 selected = list(installed)
             elif sys.stdin.isatty():
-                click.echo("📦 Available vendors: " + ", ".join(VENDORS), err=True)
-                answer = click.prompt("Select vendors (comma-separated)", err=True)
-                selected = list(
-                    dict.fromkeys(part.strip() for part in answer.split(","))
-                )
-                if any(name not in VENDORS for name in selected):
-                    raise ValueError(
-                        "Choose vendor identifiers from the displayed list"
-                    )
+                selected = pick_vendors()
         if not selected:
             raise ValueError("Select a vendor: emoji install --vendor apple")
         if use_as_default and len(selected) != 1:
@@ -265,6 +269,63 @@ def install(
             raise ValueError("Installation failed for: " + ", ".join(failures))
         if use_as_default:
             save_preference("vendor", selected[0])
+
+
+@cli.command()
+@click.option(
+    "--yes", is_flag=True, help="Skip confirmation for installation or update."
+)
+@click.pass_context
+def setup(
+    ctx: click.Context,
+    yes: bool,
+    tag: str | None,
+    update: bool,
+    use_as_default: bool,
+    local_override: Path | None,
+    aliases: Path | None,
+) -> None:
+    """Install the OS vendor: Apple on macOS, Windows on Windows, Google on Linux."""
+    if local_override and tag:
+        raise click.UsageError("Choose --local-override or --release")
+    if aliases and not local_override:
+        raise click.UsageError("--aliases requires --local-override")
+    with operation(lock=False) as store:
+        os_vendor = {"Darwin": "apple", "Windows": "windows", "Linux": "google"}.get(
+            platform.system()
+        )
+        selected = [os_vendor] if os_vendor else pick_vendors()
+        if use_as_default and len(selected) != 1:
+            raise click.UsageError("--use-as-default requires exactly one vendor")
+        with store.locked(exclusive=False):
+            installed = store.installed()
+        pending = [vendor for vendor in selected if update or vendor not in installed]
+        if pending and not yes:
+            if not sys.stdin.isatty():
+                raise click.UsageError("Unattended setup requires --yes")
+            action = "Install or update" if update else "Install"
+            click.confirm(
+                f"📥 {action} artwork for {', '.join(pending)}?",
+                default=False,
+                abort=True,
+                err=True,
+            )
+    ctx.invoke(
+        install,
+        vendor=tuple(selected),
+        tag=tag,
+        all_vendors=False,
+        update=update,
+        use_as_default=use_as_default,
+        local_override=local_override,
+        aliases=aliases,
+    )
+
+
+# Share installation options and their validation, excluding vendor selection.
+setup.params.extend(
+    param for param in install.params if param.name not in {"vendor", "all_vendors"}
+)
 
 
 @cli.group()

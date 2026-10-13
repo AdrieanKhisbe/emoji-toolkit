@@ -23,6 +23,9 @@ pip install emoji-toolkit
 emoji install --vendor apple
 ```
 
+On macOS and Linux, `emoji setup` selects the OS vendor and asks for confirmation.
+Use `emoji setup --yes` in scripts; `emoji install` lets you pick vendors yourself.
+
 ## Use it :rugby_football:
 
 ```sh

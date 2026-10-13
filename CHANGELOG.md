@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- OS-specific `setup` with confirmation, unattended `--yes`, shared installation options, and a picker for unknown systems ([#4]).
 - `install --use-as-default` selects a single vendor after successful installation or selects an already installed vendor without downloading ([#3]).
 - On-demand PNG preview sizes with `--url --size N` (1–1024 pixels), preserving proportions and transparency without enlarging original artwork ([#2]).
 - 🎯 Explicit lookup commands: `emoji get :wave:` and `emoji lookup :wave:`, with the same options as `emoji :wave:`.
@@ -35,3 +36,4 @@ First CLI release.
 [0.1.0]: https://github.com/AdrieanKhisbe/emoji-toolkit/releases/tag/v0.1.0
 [#2]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/2
 [#3]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/3
+[#4]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/4

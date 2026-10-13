@@ -10,6 +10,26 @@ pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 
 Artwork installation requires a published compatible immutable resource release;
 see [resource releases](resource-releases.md) for the manual publishing procedure.
+
+`emoji setup` chooses Apple on macOS, Windows on Windows, and Google on Linux.
+It confirms installation or updates interactively; pass `--yes` for unattended
+use. On an unknown OS, it opens the vendor picker, or gives explicit installation
+instructions when noninteractive. Bare `emoji install` keeps its vendor picker.
+
+Setup accepts `--update`, `--release`, `--local-override`, `--aliases`, and
+`--use-as-default`. Vendor selection and `--all` belong to `install`. An already
+installed vendor skips downloading and confirmation unless `--update` is given;
+`--use-as-default` can still select it. Existing defaults are preserved unless
+explicitly changed, and failed installation preserves the previous default.
+
+```sh
+emoji setup
+emoji setup --yes
+emoji setup --yes --update --use-as-default
+```
+
+Native Windows execution currently requires replacing the store's Unix-only
+file locking; Windows vendor selection is covered by simulated OS tests.
 For local testing, install directly from the source dataset instead:
 
 ```sh

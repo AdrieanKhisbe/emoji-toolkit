@@ -753,6 +753,157 @@ def test_default_install_rejects_multiple_selected_vendors(
     assert "vendor: apple" in invoke(terminal, "config", "show").stdout
 
 
+@pytest.mark.parametrize(
+    "system,vendor", [("Darwin", "apple"), ("Windows", "windows"), ("Linux", "google")]
+)
+def test_setup_selects_os_vendor(
+    system, vendor, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    import shutil
+
+    dataset, _ = resources
+    shutil.copytree(dataset / "images/apple", dataset / "images/windows")
+    records = json.loads((dataset / "vendors/apple.json").read_text())
+    for record in records:
+        record["source"]["vendor"] = "windows"
+        record["image_path"] = str(
+            dataset / "images/windows" / Path(record["image_path"]).name
+        )
+    (dataset / "vendors/windows.json").write_text(json.dumps(records))
+    releases(build(resources, tmp_path, vendors=("apple", "google", "windows")))
+    monkeypatch.setattr(platform, "system", lambda: system)
+    result = invoke(terminal, "setup", "--yes")
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert f"{vendor}: resources-v1 (default)" in invoke(terminal, "status").stdout
+
+
+@pytest.mark.parametrize("answer,success", [("y", True), ("n", False)])
+def test_setup_confirms_before_download(
+    answer, success, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    if success:
+        releases(build(resources, tmp_path))
+    result = terminal.invoke(cli, ["setup"], input=answer + "\n")
+    assert (result.exit_code == 0) == success, result.output
+    assert "apple" in result.stderr
+    assert result.stdout == ""
+    if not success:
+        assert "No vendors installed" in invoke(terminal, "status").stderr
+
+
+def test_setup_requires_yes_when_unattended(terminal, monkeypatch):
+    import platform
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    result = invoke(terminal, "setup")
+    assert result.exit_code != 0
+    assert "--yes" in result.stderr and result.stdout == ""
+
+
+def test_unknown_os_setup_uses_picker_even_for_update(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    monkeypatch.setattr(platform, "system", lambda: "Unknown")
+    for args in [("setup",), ("setup", "--yes")]:
+        result = invoke(terminal, *args)
+        assert result.exit_code != 0 and "emoji install --vendor" in result.stderr
+    releases(build(resources, tmp_path))
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    result = terminal.invoke(cli, ["setup", "--update", "--yes"], input="google\n")
+    assert result.exit_code == 0, result.output
+    assert "google: resources-v1 (default)" in invoke(terminal, "status").stdout
+
+
+def test_setup_existing_vendor_skips_prompt_and_network(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "google", "--vendor", "apple").exit_code
+        == 0
+    )
+    releases.responses.clear()
+    result = invoke(terminal, "setup")
+    assert result.exit_code == 0, result.output
+    assert "already installed" in result.stderr
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    result = invoke(terminal, "setup", "--use-as-default")
+    assert result.exit_code == 0, result.output
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+    result = invoke(terminal, "setup", "--update")
+    assert result.exit_code == 2 and "--yes" in result.stderr
+
+
+def test_setup_local_resources_and_update_preserve_default(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "google").exit_code == 0
+    releases.responses.clear()
+    result = invoke(
+        terminal,
+        "setup",
+        "--yes",
+        "--local-override",
+        str(resources[0]),
+        "--aliases",
+        str(resources[1]),
+    )
+    assert result.exit_code == 0, result.output
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    releases(build(resources, tmp_path, "resources-v2"))
+    result = invoke(
+        terminal,
+        "setup",
+        "--yes",
+        "--update",
+        "--release",
+        "resources-v2",
+        "--use-as-default",
+    )
+    assert result.exit_code == 0, result.output
+    assert "apple: resources-v2 (default)" in invoke(terminal, "status").stdout
+
+
+def test_failed_setup_preserves_default(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    folder = build(resources, tmp_path)
+    tamper_bundle(folder, "png-crc")
+    releases(folder)
+    assert invoke(terminal, "install", "--vendor", "google").exit_code == 0
+    result = invoke(terminal, "setup", "--yes", "--use-as-default")
+    assert result.exit_code != 0 and "apple" in result.stderr
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+
+
+@pytest.mark.parametrize("option", ["--vendor", "--all"])
+def test_setup_does_not_accept_vendor_selection(terminal, option):
+    result = invoke(terminal, "setup", option)
+    assert result.exit_code == 2 and "No such option" in result.stderr
+
+
 def test_publication_failure_rolls_back_old_artwork(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
