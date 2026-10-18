@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `uninstall --vendor VENDOR` removes artwork offline, preserves shared resources, and clears a removed default without selecting a replacement ([#5]).
 - List formats with `--format plain|colon|emoji` and `--colon` / `--emoji` shortcuts, preserving alias ordering, search, and vendor filtering ([#6]).
 - OS-specific `setup` with confirmation, unattended `--yes`, shared installation options, and a picker for unknown systems ([#4]).
 - `install --use-as-default` selects a single vendor after successful installation or selects an already installed vendor without downloading ([#3]).
@@ -39,3 +40,4 @@ First CLI release.
 [#3]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/3
 [#4]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/4
 [#6]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/6
+[#5]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/5

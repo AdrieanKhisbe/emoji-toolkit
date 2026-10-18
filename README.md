@@ -56,6 +56,7 @@ emoji install --vendor google --use-as-default  # install and choose the default
 emoji config set skin-tone dark
 emoji install --update                 # refresh installed artwork
 emoji status                           # show installed vendors and versions
+emoji uninstall --vendor twitter       # remove artwork you no longer need
 ```
 
 See [all commands and options](docs/cli.md).

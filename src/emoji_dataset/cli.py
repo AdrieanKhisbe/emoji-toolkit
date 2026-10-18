@@ -328,6 +328,37 @@ setup.params.extend(
 )
 
 
+@cli.command()
+@click.option("--vendor", multiple=True, required=True, type=click.Choice(VENDORS))
+def uninstall(vendor: tuple[str, ...]) -> None:
+    """Remove selected vendors without prompting; keep other installed artwork."""
+    with operation(write=True) as store:
+        failures = []
+        for name in dict.fromkeys(vendor):
+            try:
+                was_default = store.default_vendor() == name
+                removed, warnings = store.uninstall(name)
+                if removed:
+                    click.echo(f"📦 Removed {name}", err=True)
+                    if was_default:
+                        click.echo(
+                            "⚙️ Default vendor cleared. Select an installed vendor with "
+                            "emoji config set vendor VENDOR.",
+                            err=True,
+                        )
+                else:
+                    click.echo(
+                        f"📦 {name} is not installed; nothing to remove.", err=True
+                    )
+                for warning in warnings:
+                    click.echo(f"⚠️ {warning}", err=True)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                failures.append(name)
+                click.echo(f"❌ {name}: {error}", err=True)
+        if failures:
+            raise ValueError("Uninstall failed for: " + ", ".join(failures))
+
+
 @cli.group()
 def config() -> None:
     """Save default vendor and skin-tone preferences."""

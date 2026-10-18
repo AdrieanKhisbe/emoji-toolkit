@@ -82,6 +82,8 @@ emoji install --all
 emoji install --update                 # all installed vendors
 emoji install --vendor apple --update
 emoji install --vendor apple --update --release resources-2026-09-30
+emoji uninstall --vendor google
+emoji uninstall --vendor apple --vendor twitter
 emoji config set vendor --help         # list accepted vendors
 emoji config set vendor apple
 emoji config set skin-tone dark
@@ -101,6 +103,23 @@ installed vendor without downloading or requiring `--update`. Other preferences
 are preserved. Multiple selections, including `--all` or an update of several
 installed vendors, are rejected before installation. A failed installation or
 update preserves the previous default. Without the flag, defaults are unchanged.
+
+`emoji uninstall --vendor VENDOR` removes that vendor's images, previews, and
+installation metadata without prompting. Repeat `--vendor` to remove several;
+an absent vendor is a successful no-op. There is no `--all` option. Removal is
+offline and preserves other vendors and any shared indexes they still need.
+
+Removing the default vendor clears the selection without choosing a replacement.
+Lookup then requires `--vendor`, `EMOJI_VENDOR`, or a new saved default:
+
+```sh
+emoji config set vendor google
+```
+
+Other preferences, including skin tone, are preserved. A failed removal is
+reported while remaining selected vendors are still attempted. Cleanup failures
+after removal are warnings with the affected location. If saving the cleared
+default fails, the vendor's artwork is restored.
 
 Skin tones are `none`, `light`, `medium-light`, `medium`, `medium-dark`, and `dark`.
 A toned shortcode overrides the saved tone; an explicit `--skin-tone` overrides
