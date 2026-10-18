@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- List formats with `--format plain|colon|emoji` and `--colon` / `--emoji` shortcuts, preserving alias ordering, search, and vendor filtering ([#6]).
 - OS-specific `setup` with confirmation, unattended `--yes`, shared installation options, and a picker for unknown systems ([#4]).
 - `install --use-as-default` selects a single vendor after successful installation or selects an already installed vendor without downloading ([#3]).
 - On-demand PNG preview sizes with `--url --size N` (1–1024 pixels), preserving proportions and transparency without enlarging original artwork ([#2]).
@@ -37,3 +38,4 @@ First CLI release.
 [#2]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/2
 [#3]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/3
 [#4]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/4
+[#6]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/6

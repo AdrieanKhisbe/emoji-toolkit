@@ -38,6 +38,8 @@ emoji smiley --url --size 128         # generate a preview within 128×128
 emoji wave --skin-tone dark          # choose a skin tone
 emoji smiley --vendor google         # choose a vendor
 emoji list hand                      # discover shortcodes
+emoji list hand --emoji              # show Unicode emoji alongside shortcodes
+emoji list hand --colon              # wrap shortcodes in colons
 ```
 <!--(Faire des capture d'usage ascii-image-converter, notif, etc)-->
 

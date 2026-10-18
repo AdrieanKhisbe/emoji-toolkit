@@ -361,6 +361,94 @@ def test_preferences_tones_listing_and_reserved_words(
     assert "waving_hand_dark_skin_tone.png" in invoke(terminal, "dark_wave").stdout
 
 
+@pytest.mark.parametrize(
+    "options,prefix,suffix",
+    [
+        ((), "", ""),
+        (("--format", "plain"), "", ""),
+        (("--format", "colon"), ":", ":"),
+        (("--colon",), ":", ":"),
+        (("--format", "emoji"), "😆 ", ""),
+        (("--emoji",), "😆 ", ""),
+        (("--format", "emoji", "--emoji"), "😆 ", ""),
+    ],
+)
+def test_list_formats_preserve_aliases_and_search(
+    options, prefix, suffix, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    result = invoke(terminal, "list", "SQUINTING", *options)
+    assert result.exit_code == 0, result.output
+    assert result.stderr == ""
+    assert result.stdout.splitlines() == [
+        prefix + alias + suffix for alias in ("laughing", "satisfied")
+    ]
+    assert invoke(terminal, "list", "no_such_emoji", *options).stdout == ""
+
+
+def test_emoji_list_preserves_tone_and_joined_sequences(
+    resources, tmp_path, terminal, releases
+):
+    dataset, aliases = resources
+    entries = json.loads((dataset / "dataset.json").read_text())
+    entries.append(
+        {
+            "unicode": ["U+1F469", "U+200D", "U+1F4BB"],
+            "name": "woman technologist",
+            "cldr_name": "woman technologist",
+        }
+    )
+    (dataset / "dataset.json").write_text(json.dumps(entries))
+    mappings = json.loads(aliases.read_text())
+    mappings.append({"emoji": "👩‍💻", "aliases": ["woman_technologist"]})
+    aliases.write_text(json.dumps(mappings))
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    records.append(
+        {
+            **records[0],
+            "unicode": entries[-1]["unicode"],
+            "image_path": str(dataset / "images/apple/woman technologist.png"),
+        }
+    )
+    (dataset / "images/apple/woman technologist.png").write_bytes(png())
+    records_path.write_text(json.dumps(records))
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    assert (
+        invoke(terminal, "list", "wave", "--emoji").stdout == "👋🏿 dark_wave\n👋 wave\n"
+    )
+    assert (
+        invoke(terminal, "list", "technologist", "--emoji").stdout
+        == "👩‍💻 woman_technologist\n"
+    )
+    assert (
+        invoke(terminal, "list", "technologist", "--emoji", "--vendor", "google").stdout
+        == ""
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ("--emoji", "--colon"),
+        ("--format", "plain", "--emoji"),
+        ("--format", "emoji", "--colon"),
+        ("--format", "unknown"),
+    ],
+)
+def test_list_rejects_invalid_or_conflicting_formats(terminal, options):
+    result = invoke(terminal, "list", *options)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "format" in result.stderr
+
+
 def test_update_preserves_paths_and_other_vendors_release_aliases(
     resources, tmp_path, terminal, releases
 ):

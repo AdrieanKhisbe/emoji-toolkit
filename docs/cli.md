@@ -54,6 +54,8 @@ emoji grinning --url --size 128         # on-demand preview within 128×128
 emoji :wink: --url-file                 # path to a file containing the URL
 emoji wave --skin-tone dark
 emoji list hand
+emoji list wave --colon                 # :wave:
+emoji list wave --emoji                 # 👋 wave (also lists matching aliases)
 emoji status
 ```
 
@@ -109,3 +111,17 @@ A supported variant missing from the selected vendor is an error.
 Preferences and resources respect `XDG_CONFIG_HOME` and `XDG_DATA_HOME`. Defaults
 are `~/.config/emojies/` and `~/.local/share/emojies/`. Installed filenames use
 underscores for spaces and remain stable across updates. Lookup needs no network.
+
+`emoji list [QUERY] --format plain|colon|emoji` selects the list output:
+
+| Format | Example | Shortcut |
+| --- | --- | --- |
+| `plain` (default) | `wave` | |
+| `colon` | `:wave:` | `--colon` |
+| `emoji` | `👋 wave` | `--emoji` |
+
+Every format keeps all matching aliases in alphabetical order, one per line,
+with the same case-insensitive search and vendor filtering. Emoji are Unicode
+characters rendered by your terminal, rather than vendor images. Skin tones and
+joined sequences are retained. Conflicting format options are rejected; repeating
+the same format through its shortcut is allowed. Empty results print nothing.

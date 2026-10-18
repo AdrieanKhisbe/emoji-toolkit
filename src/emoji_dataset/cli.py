@@ -382,8 +382,38 @@ def config_show() -> None:
 @cli.command("list")
 @click.argument("query", default="")
 @click.option("--vendor", type=click.Choice(VENDORS))
-def list_aliases(query: str, vendor: str | None) -> None:
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(("plain", "colon", "emoji")),
+    help="List format (default: plain).",
+)
+@click.option(
+    "--emoji", "with_emoji", is_flag=True, help="Shortcut for --format emoji."
+)
+@click.option(
+    "--colon", "with_colon", is_flag=True, help="Shortcut for --format colon."
+)
+def list_aliases(
+    query: str,
+    vendor: str | None,
+    output_format: str | None,
+    with_emoji: bool,
+    with_colon: bool,
+) -> None:
     """List available shortcodes matching an alias or emoji name."""
+    formats = {
+        value
+        for value in (
+            output_format,
+            "emoji" if with_emoji else None,
+            "colon" if with_colon else None,
+        )
+        if value is not None
+    }
+    if len(formats) > 1:
+        raise click.UsageError("Choose one list format: plain, colon, or emoji")
+    selected_format = next(iter(formats), "plain")
     with operation() as store:
         index, records = store.collection(store.vendor(vendor))
         query = query.casefold()
@@ -393,7 +423,14 @@ def list_aliases(query: str, vendor: str | None) -> None:
                 query in text.casefold()
                 for text in (alias, entry["name"], entry["cldr_name"])
             ):
-                click.echo(alias)
+                if selected_format == "colon":
+                    click.echo(f":{alias}:")
+                elif selected_format == "emoji":
+                    # Convert hyphen-separated hex code points into Unicode characters.
+                    emoji = "".join(chr(int(point, 16)) for point in key.split("-"))
+                    click.echo(f"{emoji} {alias}")
+                else:
+                    click.echo(alias)
 
 
 @cli.command()
