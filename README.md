@@ -41,7 +41,18 @@ emoji list hand                      # discover shortcodes
 emoji list hand --emoji              # show Unicode emoji alongside shortcodes
 emoji list hand --colon              # wrap shortcodes in colons
 ```
-<!--(Faire des capture d'usage ascii-image-converter, notif, etc)-->
+
+Use the returned path with an image viewer or notification tool you have installed:
+
+```sh
+viu "$(emoji wave)"                                      # view in your terminal
+ascii-image-converter "$(emoji smiley)" --color           # render as ASCII art
+notify-send --icon="$(emoji tada)" "Build finished"        # Linux desktop notification
+```
+
+See [viu](https://github.com/atanunq/viu),
+[ascii-image-converter](https://github.com/TheZoraiz/ascii-image-converter), and
+[notify-send](https://manpages.ubuntu.com/manpages/resolute/man1/notify-send.1.html).
 
 Shortcodes follow GitHub aliases. Colons are optional: `smiley` and
 `:smiley:` work the same way. 😃

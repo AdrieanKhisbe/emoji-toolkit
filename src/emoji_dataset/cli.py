@@ -279,17 +279,10 @@ def install(
 def setup(
     ctx: click.Context,
     yes: bool,
-    tag: str | None,
     update: bool,
     use_as_default: bool,
-    local_override: Path | None,
-    aliases: Path | None,
 ) -> None:
     """Install the OS vendor: Apple on macOS, Windows on Windows, Google on Linux."""
-    if local_override and tag:
-        raise click.UsageError("Choose --local-override or --release")
-    if aliases and not local_override:
-        raise click.UsageError("--aliases requires --local-override")
     with operation(lock=False) as store:
         os_vendor = {"Darwin": "apple", "Windows": "windows", "Linux": "google"}.get(
             platform.system()
@@ -313,18 +306,15 @@ def setup(
     ctx.invoke(
         install,
         vendor=tuple(selected),
-        tag=tag,
         all_vendors=False,
         update=update,
         use_as_default=use_as_default,
-        local_override=local_override,
-        aliases=aliases,
     )
 
 
-# Share installation options and their validation, excluding vendor selection.
+# Keep setup simple; advanced resource options belong to install.
 setup.params.extend(
-    param for param in install.params if param.name not in {"vendor", "all_vendors"}
+    param for param in install.params if param.name in {"update", "use_as_default"}
 )
 
 

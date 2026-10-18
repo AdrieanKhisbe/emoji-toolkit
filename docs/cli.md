@@ -16,8 +16,9 @@ It confirms installation or updates interactively; pass `--yes` for unattended
 use. On an unknown OS, it opens the vendor picker, or gives explicit installation
 instructions when noninteractive. Bare `emoji install` keeps its vendor picker.
 
-Setup accepts `--update`, `--release`, `--local-override`, `--aliases`, and
-`--use-as-default`. Vendor selection and `--all` belong to `install`. An already
+Setup accepts `--yes`, `--update`, and `--use-as-default`. Advanced resource
+options (`--release`, `--local-override`, and `--aliases`), vendor selection, and
+`--all` belong to `install`. An already
 installed vendor skips downloading and confirmation unless `--update` is given;
 `--use-as-default` can still select it. Existing defaults are preserved unless
 explicitly changed, and failed installation preserves the previous default.

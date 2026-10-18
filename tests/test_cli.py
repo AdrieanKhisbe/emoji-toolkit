@@ -937,7 +937,7 @@ def test_setup_existing_vendor_skips_prompt_and_network(
     assert result.exit_code == 2 and "--yes" in result.stderr
 
 
-def test_setup_local_resources_and_update_preserve_default(
+def test_setup_install_and_update_preserve_default(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
     import platform
@@ -945,16 +945,7 @@ def test_setup_local_resources_and_update_preserve_default(
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
     releases(build(resources, tmp_path))
     assert invoke(terminal, "install", "--vendor", "google").exit_code == 0
-    releases.responses.clear()
-    result = invoke(
-        terminal,
-        "setup",
-        "--yes",
-        "--local-override",
-        str(resources[0]),
-        "--aliases",
-        str(resources[1]),
-    )
+    result = invoke(terminal, "setup", "--yes")
     assert result.exit_code == 0, result.output
     assert "vendor: google" in invoke(terminal, "config", "show").stdout
     releases(build(resources, tmp_path, "resources-v2"))
@@ -963,8 +954,6 @@ def test_setup_local_resources_and_update_preserve_default(
         "setup",
         "--yes",
         "--update",
-        "--release",
-        "resources-v2",
         "--use-as-default",
     )
     assert result.exit_code == 0, result.output
@@ -986,10 +975,21 @@ def test_failed_setup_preserves_default(
     assert "vendor: google" in invoke(terminal, "config", "show").stdout
 
 
-@pytest.mark.parametrize("option", ["--vendor", "--all"])
-def test_setup_does_not_accept_vendor_selection(terminal, option):
+@pytest.mark.parametrize(
+    "option",
+    [
+        "--vendor",
+        "--all",
+        "--local-override",
+        "--local-overidde",
+        "--aliases",
+        "--release",
+    ],
+)
+def test_setup_rejects_advanced_install_options(terminal, option):
     result = invoke(terminal, "setup", option)
     assert result.exit_code == 2 and "No such option" in result.stderr
+    assert option not in invoke(terminal, "setup", "--help").stdout
 
 
 def test_uninstall_nondefault_preserves_other_vendor_and_shared_index(
