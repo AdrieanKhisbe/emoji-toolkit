@@ -99,15 +99,9 @@ emoji install --all
 
 The same 😃 `:smiley:`, drawn by each vendor:
 
-| Vendor | Smiley |
-| --- | :---: |
-| Apple | <img src="resources/dataset/images/apple/grinning%20face%20with%20big%20eyes.png" alt="Apple smiley" width="48"> |
-| JoyPixels | <img src="resources/dataset/images/emojione/grinning%20face%20with%20big%20eyes.png" alt="JoyPixels smiley" width="48"> |
-| Facebook | <img src="resources/dataset/images/facebook/grinning%20face%20with%20big%20eyes.png" alt="Facebook smiley" width="48"> |
-| Google | <img src="resources/dataset/images/google/grinning%20face%20with%20big%20eyes.png" alt="Google smiley" width="48"> |
-| Samsung | <img src="resources/dataset/images/samsung/grinning%20face%20with%20big%20eyes.png" alt="Samsung smiley" width="48"> |
-| Twitter / X | <img src="resources/dataset/images/twitter/grinning%20face%20with%20big%20eyes.png" alt="Twitter smiley" width="48"> |
-| Microsoft Windows | <img src="resources/dataset/images/windows/grinning%20face%20with%20big%20eyes.png" alt="Microsoft Windows smiley" width="48"> |
+| Vendor | Apple | JoyPixels | Facebook | Google | Samsung | Twitter / X | Microsoft Windows |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Smiley | <img src="resources/dataset/images/apple/grinning%20face%20with%20big%20eyes.png" alt="Apple smiley" width="48"> | <img src="resources/dataset/images/emojione/grinning%20face%20with%20big%20eyes.png" alt="JoyPixels smiley" width="48"> | <img src="resources/dataset/images/facebook/grinning%20face%20with%20big%20eyes.png" alt="Facebook smiley" width="48"> | <img src="resources/dataset/images/google/grinning%20face%20with%20big%20eyes.png" alt="Google smiley" width="48"> | <img src="resources/dataset/images/samsung/grinning%20face%20with%20big%20eyes.png" alt="Samsung smiley" width="48"> | <img src="resources/dataset/images/twitter/grinning%20face%20with%20big%20eyes.png" alt="Twitter smiley" width="48"> | <img src="resources/dataset/images/windows/grinning%20face%20with%20big%20eyes.png" alt="Microsoft Windows smiley" width="48"> |
 
 ## Explore the dataset :world_map:
 
