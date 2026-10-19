@@ -46,13 +46,21 @@ Use the returned path with an image viewer or notification tool you have install
 
 ```sh
 viu "$(emoji wave)"                                      # view in your terminal
-ascii-image-converter "$(emoji smiley)" --color           # render as ASCII art
+ascii-image-converter "$(emoji wink)" --color           # render as ASCII art
 notify-send --icon="$(emoji tada)" "Build finished"        # Linux desktop notification
 ```
 
 See [viu](https://github.com/atanunq/viu),
 [ascii-image-converter](https://github.com/TheZoraiz/ascii-image-converter), and
 [notify-send](https://manpages.ubuntu.com/manpages/resolute/man1/notify-send.1.html).
+
+| Terminal viewer · `viu` | Colored ASCII · `ascii-image-converter` |
+| :---: | :---: |
+| <img src="docs/screenshots/viu.png" alt="Waving hand displayed with viu and a transparent background" height="320"> | <img src="docs/screenshots/ascii-image-converter.png" alt="Winking face rendered as colored ASCII art" height="320"> |
+
+| Desktop notification |
+| :---: |
+| <img src="docs/screenshots/notification.png" alt="Build finished notification with a party popper emoji" width="600"> |
 
 Shortcodes follow GitHub aliases. Colons are optional: `smiley` and
 `:smiley:` work the same way. 😃
