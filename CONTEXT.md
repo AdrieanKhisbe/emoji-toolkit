@@ -35,3 +35,6 @@ A saved preference applied to emojis that support skin-tone variations when no p
 
 **Artwork preview**:
 A smaller rendering of vendor artwork, distinct from its original image. It depicts the same emoji and vendor design.
+
+**Custom emoji**:
+Personal or workspace artwork identified by a shortcode, which need not correspond to a Unicode emoji. Examples include personal images and Slack workspace emoji.

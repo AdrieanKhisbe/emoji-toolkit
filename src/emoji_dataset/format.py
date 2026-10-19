@@ -73,6 +73,20 @@ def preview_bytes(url: str) -> bytes:
     return data
 
 
+def sized_data_url(path: Path, size: int) -> tuple[str, tuple[int, int]]:
+    """Render a PNG preview without enlarging or modifying original artwork."""
+    data = path.read_bytes()
+    validate_png(data)
+    with Image.open(io.BytesIO(data)) as original:
+        dimensions = original.size
+        image = original.convert("RGBA")
+        image.thumbnail((size, size), Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        image.save(output, format="PNG", optimize=True)
+    url = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
+    return url, dimensions
+
+
 def read_json(path: Path) -> Any:
     return json.loads(path.read_bytes())
 
