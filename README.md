@@ -23,7 +23,8 @@ pip install emoji-toolkit
 emoji install --vendor apple
 ```
 
-On macOS and Linux, `emoji setup` selects the OS vendor and asks for confirmation.
+On macOS and Linux, `emoji setup` installs the OS vendor as your default after
+confirmation. Repeating it leaves an existing setup unchanged.
 Use `emoji setup --yes` in scripts; `emoji install` lets you pick vendors yourself.
 
 ## Use it :rugby_football:
@@ -73,7 +74,8 @@ Your first installed vendor becomes the default. Change it or save a skin tone:
 emoji config set vendor apple
 emoji install --vendor google --use-as-default  # install and choose the default
 emoji config set skin-tone dark
-emoji install --update                 # refresh installed artwork
+emoji install --update --vendor apple  # refresh Apple artwork
+emoji install --update                 # refresh all installed artwork
 emoji status                           # show installed vendors and versions
 emoji uninstall --vendor twitter       # remove artwork you no longer need
 ```

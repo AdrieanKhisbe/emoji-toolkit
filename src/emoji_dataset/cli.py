@@ -134,10 +134,17 @@ cli.add_command(lookup)
 cli.add_command(lookup, "get")
 
 
-def pick_vendors() -> list[str]:
+def pick_vendors(*, single: bool = False) -> list[str]:
     if not sys.stdin.isatty():
         raise ValueError("Select a vendor: emoji install --vendor apple")
     click.echo("📦 Available vendors: " + ", ".join(VENDORS), err=True)
+    if single:
+        vendor = click.prompt("Select vendor", err=True)
+        if vendor not in VENDORS:
+            raise ValueError(
+                "Choose exactly one vendor identifier from the displayed list"
+            )
+        return [vendor]
     answer = click.prompt("Select vendors (comma-separated)", err=True)
     selected = list(dict.fromkeys(part.strip() for part in answer.split(",")))
     if any(name not in VENDORS for name in selected):
@@ -176,6 +183,10 @@ def install(
     aliases: Path | None,
 ) -> None:
     """Install or explicitly update vendor artwork from a resource release."""
+    if update and all_vendors:
+        raise click.UsageError(
+            "Use --update without --all to refresh installed vendors"
+        )
     if all_vendors and vendor:
         raise click.UsageError("Choose --all or --vendor")
     if local_override and tag:
@@ -189,6 +200,10 @@ def install(
         if not selected:
             if update:
                 selected = list(installed)
+                if not selected:
+                    raise ValueError(
+                        "No vendors installed. Run emoji setup or emoji install --vendor VENDOR."
+                    )
             elif sys.stdin.isatty():
                 selected = pick_vendors()
         if not selected:
@@ -272,33 +287,36 @@ def install(
 
 
 @cli.command()
-@click.option(
-    "--yes", is_flag=True, help="Skip confirmation for installation or update."
-)
+@click.option("--yes", is_flag=True, help="Skip confirmation for initial installation.")
 @click.pass_context
 def setup(
     ctx: click.Context,
     yes: bool,
-    update: bool,
-    use_as_default: bool,
 ) -> None:
     """Install the OS vendor: Apple on macOS, Windows on Windows, Google on Linux."""
     with operation(lock=False) as store:
         os_vendor = {"Darwin": "apple", "Windows": "windows", "Linux": "google"}.get(
             platform.system()
         )
-        selected = [os_vendor] if os_vendor else pick_vendors()
-        if use_as_default and len(selected) != 1:
-            raise click.UsageError("--use-as-default requires exactly one vendor")
         with store.locked(exclusive=False):
             installed = store.installed()
-        pending = [vendor for vendor in selected if update or vendor not in installed]
-        if pending and not yes:
+        if os_vendor in installed:
+            click.echo(f"📦 {os_vendor} is already installed.", err=True)
+            return
+        if installed:
+            if os_vendor is None:
+                click.echo("📦 Already set up: " + ", ".join(installed) + ".", err=True)
+                return
+            raise ValueError(
+                "Other vendors are already installed. Run "
+                f"emoji install --vendor {os_vendor} --use-as-default."
+            )
+        selected = [os_vendor] if os_vendor else pick_vendors(single=True)
+        if not yes:
             if not sys.stdin.isatty():
                 raise click.UsageError("Unattended setup requires --yes")
-            action = "Install or update" if update else "Install"
             click.confirm(
-                f"📥 {action} artwork for {', '.join(pending)}?",
+                f"📥 Install artwork for {selected[0]}?",
                 default=False,
                 abort=True,
                 err=True,
@@ -307,15 +325,9 @@ def setup(
         install,
         vendor=tuple(selected),
         all_vendors=False,
-        update=update,
-        use_as_default=use_as_default,
+        update=False,
+        use_as_default=True,
     )
-
-
-# Keep setup simple; advanced resource options belong to install.
-setup.params.extend(
-    param for param in install.params if param.name in {"update", "use_as_default"}
-)
 
 
 @cli.command()

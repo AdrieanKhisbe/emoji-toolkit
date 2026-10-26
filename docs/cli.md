@@ -11,22 +11,25 @@ pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
 Artwork installation requires a published compatible immutable resource release;
 see [resource releases](resource-releases.md) for the manual publishing procedure.
 
-`emoji setup` chooses Apple on macOS, Windows on Windows, and Google on Linux.
-It confirms installation or updates interactively; pass `--yes` for unattended
-use. On an unknown OS, it opens the vendor picker, or gives explicit installation
-instructions when noninteractive. Bare `emoji install` keeps its vendor picker.
+`emoji setup` installs Apple on macOS, Windows on Windows, and Google on Linux,
+and selects it as the default. It confirms installation interactively; pass
+`--yes` for unattended use. On an unknown OS with no installed artwork, choose
+one vendor interactively or use `emoji install --vendor VENDOR` noninteractively.
+Bare `emoji install` keeps its multi-vendor picker.
 
-Setup accepts `--yes`, `--update`, and `--use-as-default`. Advanced resource
-options (`--release`, `--local-override`, and `--aliases`), vendor selection, and
-`--all` belong to `install`. An already
-installed vendor skips downloading and confirmation unless `--update` is given;
-`--use-as-default` can still select it. Existing defaults are preserved unless
-explicitly changed, and failed installation preserves the previous default.
+Setup accepts only `--yes`. If the OS vendor is already installed, setup reports
+it without downloading, prompting, or changing the current default. On an unknown
+OS, any installed vendor means setup is already complete. If other vendors are
+installed but the OS vendor is absent, setup fails with an explicit command such
+as `emoji install --vendor apple --use-as-default`.
+
+Updates and advanced resource options (`--release`, `--local-override`, and
+`--aliases`), vendor selection, and `--all` belong to `install`.
 
 ```sh
 emoji setup
 emoji setup --yes
-emoji setup --yes --update --use-as-default
+emoji install --update                 # refresh installed vendors only
 ```
 
 Native Windows execution currently requires replacing the store's Unix-only
@@ -79,9 +82,9 @@ Without `--size`, data URLs use the existing preview, at most 72×72 pixels.
 ```sh
 emoji install                          # interactive comma-separated vendor selection
 emoji install --vendor google --vendor twitter
-emoji install --all
-emoji install --update                 # all installed vendors
-emoji install --vendor apple --update
+emoji install --all                    # install every supported vendor
+emoji install --update                 # refresh all installed artwork
+emoji install --update --vendor apple  # refresh Apple artwork
 emoji install --vendor apple --update --release resources-2026-09-30
 emoji uninstall --vendor google
 emoji uninstall --vendor apple --vendor twitter
@@ -96,7 +99,10 @@ The first successfully installed vendor becomes the default. `--all` starts
 with Apple. Select artwork using `--vendor`, then `EMOJI_VENDOR`, then the saved
 default, in that order. Vendors are never substituted automatically. Installing
 an existing vendor does nothing unless `--update` is given. Without arguments,
-noninteractive installation fails with setup instructions.
+noninteractive installation fails with setup instructions. `--update` refreshes
+only installed vendors and fails with setup instructions when none are installed.
+Use `--all` for initial installation of every supported vendor; combining it with
+`--update` is an error.
 
 Use `install --use-as-default` with exactly one selected vendor to save it as
 the default after successful installation. It also works for an already

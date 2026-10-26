@@ -9,12 +9,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - `uninstall --vendor VENDOR` removes artwork offline, preserves shared resources, and clears a removed default without selecting a replacement ([#5]).
 - List formats with `--format plain|colon|emoji` and `--colon` / `--emoji` shortcuts, preserving alias ordering, search, and vendor filtering ([#6]).
-- OS-specific `setup` with confirmation, unattended `--yes`, shared installation options, and a picker for unknown systems ([#4]).
+- OS-specific first-install `setup` with confirmation, unattended `--yes`, an implied default, and a single-vendor picker for unknown systems ([#4]).
 - `install --use-as-default` selects a single vendor after successful installation or selects an already installed vendor without downloading ([#3]).
 - On-demand PNG preview sizes with `--url --size N` (1–1024 pixels), preserving proportions and transparency without enlarging original artwork ([#2]).
 - 🎯 Explicit lookup commands: `emoji get :wave:` and `emoji lookup :wave:`, with the same options as `emoji :wave:`.
 
 ### Changed
+
+- Setup leaves an already installed OS vendor untouched and directs other existing installations to `install --vendor VENDOR --use-as-default`.
 
 - Installation instructions now use the published `emoji-toolkit` package on PyPI.
 - The README version badge links to PyPI and displays the published version.
