@@ -11,21 +11,28 @@ Pick a vendor, look up a shortcode, and use the artwork anywhere.
 
 ## Install :cd:
 
-Requires Python 3.11+ and `uv` or `pipx`.
+Requires Python 3.11+.
 
 ```sh
 uv tool install emoji-toolkit
+
+emoji setup
+```
+
+Alternative install methods:
+```sh
 # Or use pipx:
 pipx install emoji-toolkit
 # Or use pip
 pip install emoji-toolkit
-
-emoji install --vendor apple
 ```
 
 On macOS and Linux, `emoji setup` installs the OS vendor as your default after
-confirmation. Repeating it leaves an existing setup unchanged.
+confirmation. If the OS vendor is already installed, setup leaves your
+installation and preferences unchanged.
 Use `emoji setup --yes` in scripts; `emoji install` lets you pick vendors yourself.
+Installation downloads artwork to `~/.local/share/emojies/`
+(or `$XDG_DATA_HOME/emojies/` when set). Those are then used offline.
 
 ## Use it :rugby_football:
 
@@ -36,19 +43,24 @@ emoji smiley --url                   # PNG preview data URL
 # data:image/png;base64,iVBOR.....RK5CYII=
 emoji smiley --url --size 128         # generate a preview within 128×128
 
-emoji wave --skin-tone dark          # choose a skin tone
-emoji smiley --vendor google         # choose a vendor
-emoji list hand                      # discover shortcodes
-emoji list hand --emoji              # show Unicode emoji alongside shortcodes
-emoji list hand --colon              # wrap shortcodes in colons
+emoji wave --skin-tone dark          # choose a skin tone 👋🏿
+emoji smiley --vendor google         # choose a specific vendor
+
+emoji list hand                      # discover shortcodes with hands
+emoji list hand --emoji              # show Unicode emoji alongside shortcodes "✋ hand"
+emoji list hand --colon              # wrap shortcodes in colons :hand:
 ```
+
+Skin tones for `--skin-tone` and `config set skin-tone`: `light` 👋🏻,
+`medium-light` 👋🏼, `medium` 👋🏽, `medium-dark` 👋🏾, `dark` 👋🏿,
+and `none` 👋 for the unmodified emoji.
 
 Use the returned path with an image viewer or notification tool you have installed:
 
 ```sh
-viu "$(emoji wave)"                                      # view in your terminal
+viu "$(emoji wave)" --transparent                       # view in your terminal
 ascii-image-converter "$(emoji wink)" --color           # render as ASCII art
-notify-send --icon="$(emoji tada)" "Build finished"        # Linux desktop notification
+notify-send --icon="$(emoji tada)" "Build finished"     # Linux desktop notification
 ```
 
 See [viu](https://github.com/atanunq/viu),
@@ -68,12 +80,17 @@ Shortcodes follow GitHub aliases. Colons are optional: `smiley` and
 Paths point to original images; data URLs default to previews up to 72×72 pixels.
 Use `--size 1–1024` with `--url` to choose a preview size; original artwork is never enlarged.
 
-Your first installed vendor becomes the default. Change it or save a skin tone:
+## Manage your artwork :art:
+
+Your first installed vendor becomes the default. Change your preferences,
+refresh installed artwork, or remove vendors you no longer use:
 
 ```sh
 emoji config set vendor apple
 emoji install --vendor google --use-as-default  # install and choose the default
 emoji config set skin-tone dark
+emoji config unset skin-tone
+
 emoji install --update --vendor apple  # refresh Apple artwork
 emoji install --update                 # refresh all installed artwork
 emoji status                           # show installed vendors and versions
@@ -84,8 +101,7 @@ See [all commands and options](docs/cli.md).
 
 ## Pick your artwork :rainbow:
 
-Different Emoji images vendors are provided
-Pick one:
+Choose artwork from seven vendors:
 - `apple`: [Apple](https://emojipedia.org/apple)
 - `emojione`: [JoyPixels](https://emojipedia.org/joypixels)
 - `facebook`: [Facebook](https://emojipedia.org/facebook)
