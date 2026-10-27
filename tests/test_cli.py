@@ -33,6 +33,11 @@ def resources(tmp_path):
     (dataset / "vendors").mkdir(parents=True)
     entries = [
         {"unicode": ["U+1F600"], "name": "grinning face", "cldr_name": "grinning face"},
+        {
+            "unicode": ["U+1F606"],
+            "name": "grinning squinting face",
+            "cldr_name": "grinning squinting face",
+        },
         {"unicode": ["U+1F44B"], "name": "waving hand", "cldr_name": "waving hand"},
         {
             "unicode": ["U+1F44B", "U+1F3FF"],
@@ -66,6 +71,7 @@ def resources(tmp_path):
         json.dumps(
             [
                 {"emoji": "😀", "aliases": ["grinning", "happy_face", "install"]},
+                {"emoji": "😆", "aliases": ["laughing", "satisfied"]},
                 {"emoji": "👋", "aliases": ["wave"]},
                 {"emoji": "👋🏿", "aliases": ["dark_wave"]},
             ]
@@ -204,6 +210,113 @@ def test_install_then_lookup_is_offline_and_returns_original_and_preview(
     assert invoke(terminal, "grinning", "--data-url").stdout == url.stdout
 
 
+@pytest.mark.parametrize("command", ["get", "lookup"])
+def test_explicit_lookup_after_fresh_install(
+    command, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    installed = invoke(terminal, "install", "--vendor", "apple")
+    assert installed.exit_code == 0, installed.output
+    releases.responses.clear()
+
+    result = invoke(terminal, command, ":satisfied:")
+    assert result.exit_code == 0, result.output
+    image = Path(result.stdout.strip())
+    assert image.name == "grinning_squinting_face.png"
+    assert image.read_bytes() == png()
+    assert result.stdout == invoke(terminal, ":satisfied:").stdout
+    preview = invoke(terminal, "satisfied", "--url")
+    for args in [(command, "satisfied", "--url"), (command, "--url", "satisfied")]:
+        result = invoke(terminal, *args)
+        assert result.exit_code == 0, result.output
+        assert result.stdout == preview.stdout
+
+
+@pytest.fixture
+def sized_artwork(resources):
+    dataset, _ = resources
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    original = Path(records[0]["image_path"])
+    Image.new("RGBA", (160, 80), (100, 20, 40, 128)).save(original)
+    records[0]["source"]["sha256"] = hashlib.sha256(original.read_bytes()).hexdigest()
+    records_path.write_text(json.dumps(records))
+    return original.read_bytes()
+
+
+@pytest.mark.parametrize("command", [(), ("get",), ("lookup",)])
+@pytest.mark.parametrize("url_flag", ["--url", "--data-url"])
+def test_sized_preview_uses_original_offline(
+    command, url_flag, sized_artwork, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    original = Path(invoke(terminal, "grinning").stdout.strip())
+    saved_preview = original.with_suffix(".url").read_bytes()
+
+    for args in [
+        (*command, "grinning", url_flag, "--size", "128"),
+        (*command, "--size", "128", url_flag, "grinning"),
+    ]:
+        result = invoke(terminal, *args)
+        assert result.exit_code == 0, result.output
+        assert result.stderr == ""
+        prefix, payload = result.stdout.strip().split(",", 1)
+        assert prefix == "data:image/png;base64"
+        with Image.open(io.BytesIO(base64.b64decode(payload, validate=True))) as image:
+            assert image.format == "PNG"
+            assert image.size == (128, 64)
+            assert image.getpixel((64, 32))[3] == 128
+    assert original.read_bytes() == sized_artwork
+    assert original.with_suffix(".url").read_bytes() == saved_preview
+    assert (
+        invoke(terminal, "grinning", "--url").stdout.strip().encode() == saved_preview
+    )
+
+    # A requested size is generated from the original, not the saved preview.
+    original.with_suffix(".url").chmod(0o644)
+    original.with_suffix(".url").unlink()
+    result = invoke(terminal, *command, "grinning", url_flag, "--size", "128")
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize(
+    "size,dimensions,warn", [(1, (1, 1), False), (1024, (160, 80), True)]
+)
+def test_preview_size_bounds_and_no_upscaling(
+    size, dimensions, warn, sized_artwork, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    result = invoke(terminal, "grinning", "--url", "--size", str(size))
+    assert result.exit_code == 0, result.output
+    with Image.open(
+        io.BytesIO(base64.b64decode(result.stdout.split(",", 1)[1]))
+    ) as image:
+        assert image.size == dimensions
+    assert bool(result.stderr) == warn
+    if warn:
+        assert "160×80" in result.stderr and "1024" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "args,message",
+    [
+        (("--url", "--size", "0"), "1<=x<=1024"),
+        (("--url", "--size", "1025"), "1<=x<=1024"),
+        (("--url", "--size", "1.5"), "integer"),
+        (("--size", "128"), "requires --url"),
+        (("--url-file", "--size", "128"), "--url-file"),
+    ],
+)
+def test_invalid_preview_size_options_fail_before_lookup(terminal, args, message):
+    result = invoke(terminal, "grinning", *args)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert message in result.stderr
+
+
 def test_preferences_tones_listing_and_reserved_words(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
@@ -212,12 +325,15 @@ def test_preferences_tones_listing_and_reserved_words(
         invoke(terminal, "install", "--vendor", "google", "--vendor", "apple").exit_code
         == 0
     )
-    assert "/google/" in invoke(terminal, "wave").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "google"
     assert invoke(terminal, "config", "set", "vendor", "apple").exit_code == 0
-    assert "/apple/" in invoke(terminal, "wave").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "apple"
     monkeypatch.setenv("EMOJI_VENDOR", "google")
-    assert "/google/" in invoke(terminal, "wave").stdout
-    assert "/apple/" in invoke(terminal, "wave", "--vendor", "apple").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "google"
+    assert (
+        Path(invoke(terminal, "wave", "--vendor", "apple").stdout.strip()).parent.name
+        == "apple"
+    )
     assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
     assert "waving_hand_dark_skin_tone.png" in invoke(terminal, "wave").stdout
     assert (
@@ -234,13 +350,157 @@ def test_preferences_tones_listing_and_reserved_words(
     assert "google" in invoke(terminal, "status").stdout
     assert "resources-v1" in invoke(terminal, "status").stdout
     listed = invoke(terminal, "list", "GRINNING")
-    assert listed.stdout.splitlines() == ["grinning", "happy_face", "install"]
+    assert listed.stdout.splitlines() == [
+        "grinning",
+        "happy_face",
+        "install",
+        "laughing",
+        "satisfied",
+    ]
     assert invoke(terminal, ":install:").stdout == invoke(terminal, "grinning").stdout
     for alias in ("😀", "U+1F600", "grinning face"):
         assert invoke(terminal, alias).exit_code != 0
     assert invoke(terminal, "config", "unset", "skin-tone").exit_code == 0
     assert "waving_hand.png" in invoke(terminal, "wave").stdout
     assert "waving_hand_dark_skin_tone.png" in invoke(terminal, "dark_wave").stdout
+
+
+@pytest.mark.parametrize(
+    "options,prefix,suffix",
+    [
+        ((), "", ""),
+        (("--format", "plain"), "", ""),
+        (("--format", "colon"), ":", ":"),
+        (("--colon",), ":", ":"),
+        (("--format", "emoji"), "😆 ", ""),
+        (("--emoji",), "😆 ", ""),
+        (("--format", "emoji", "--emoji"), "😆 ", ""),
+    ],
+)
+def test_list_formats_preserve_aliases_and_search(
+    options, prefix, suffix, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    result = invoke(terminal, "list", "SQUINTING", *options)
+    assert result.exit_code == 0, result.output
+    assert result.stderr == ""
+    assert result.stdout.splitlines() == [
+        prefix + alias + suffix for alias in ("laughing", "satisfied")
+    ]
+    assert invoke(terminal, "list", "no_such_emoji", *options).stdout == ""
+
+
+def test_emoji_list_preserves_tone_and_joined_sequences(
+    resources, tmp_path, terminal, releases
+):
+    dataset, aliases = resources
+    entries = json.loads((dataset / "dataset.json").read_text())
+    entries.append(
+        {
+            "unicode": ["U+1F469", "U+200D", "U+1F4BB"],
+            "name": "woman technologist",
+            "cldr_name": "woman technologist",
+        }
+    )
+    (dataset / "dataset.json").write_text(json.dumps(entries))
+    mappings = json.loads(aliases.read_text())
+    mappings.append({"emoji": "👩‍💻", "aliases": ["woman_technologist"]})
+    aliases.write_text(json.dumps(mappings))
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    records.append(
+        {
+            **records[0],
+            "unicode": entries[-1]["unicode"],
+            "image_path": str(dataset / "images/apple/woman technologist.png"),
+        }
+    )
+    (dataset / "images/apple/woman technologist.png").write_bytes(png())
+    records_path.write_text(json.dumps(records))
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    assert (
+        invoke(terminal, "list", "wave", "--emoji").stdout == "👋🏿 dark_wave\n👋 wave\n"
+    )
+    assert (
+        invoke(terminal, "list", "technologist", "--emoji").stdout
+        == "👩‍💻 woman_technologist\n"
+    )
+    assert (
+        invoke(terminal, "list", "technologist", "--emoji", "--vendor", "google").stdout
+        == ""
+    )
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_emoji_list_preserves_presentation_selectors(
+    legacy, resources, tmp_path, terminal, releases
+):
+    dataset, aliases = resources
+    examples = {
+        "copyright": "©️",
+        "left_right_arrow": "↔️",
+        "keycap_hash": "#️⃣",
+        "keycap_asterisk": "*️⃣",
+        "woman_health_worker": "👩‍⚕️",
+        "rainbow_flag": "🏳️‍🌈",
+        "point_up": "☝️",
+        "point_up_dark": "☝🏿",
+    }
+    entries = json.loads((dataset / "dataset.json").read_text())
+    mappings = json.loads(aliases.read_text())
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    for alias, emoji in examples.items():
+        points = [f"U+{ord(character):X}" for character in emoji]
+        entries.append({"unicode": points, "name": alias, "cldr_name": alias})
+        mappings.append({"emoji": emoji, "aliases": [alias]})
+        image = dataset / "images/apple" / f"{alias}.png"
+        image.write_bytes(png())
+        records.append({**records[0], "unicode": points, "image_path": str(image)})
+    (dataset / "dataset.json").write_text(json.dumps(entries))
+    aliases.write_text(json.dumps(mappings))
+    records_path.write_text(json.dumps(records))
+    folder = build(resources, tmp_path)
+    if legacy:
+        index_path = folder / "index.json"
+        index = json.loads(index_path.read_text())
+        for entry in index["entries"].values():
+            entry.pop("emoji", None)
+        index_path.write_text(json.dumps(index))
+        manifest_path = folder / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["index"]["sha256"] = hashlib.sha256(
+            index_path.read_bytes()
+        ).hexdigest()
+        manifest_path.write_text(json.dumps(manifest))
+    releases(folder)
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    lines = invoke(terminal, "list", "--emoji").stdout.splitlines()
+    for alias, emoji in examples.items():
+        assert f"{emoji} {alias}" in lines
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ("--emoji", "--colon"),
+        ("--format", "plain", "--emoji"),
+        ("--format", "emoji", "--colon"),
+        ("--format", "unknown"),
+    ],
+)
+def test_list_rejects_invalid_or_conflicting_formats(terminal, options):
+    result = invoke(terminal, "list", *options)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "format" in result.stderr
 
 
 def test_update_preserves_paths_and_other_vendors_release_aliases(
@@ -503,6 +763,572 @@ def test_install_selection_and_first_success_default(
     assert "google: resources-v1 (default)" in invoke(terminal, "status").stdout
 
 
+@pytest.mark.parametrize("local", [False, True])
+@pytest.mark.parametrize("use_default", [False, True])
+def test_install_can_explicitly_select_default(
+    local, use_default, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
+    args = ["install", "--vendor", "google"]
+    if local:
+        args += ["--local-override", str(resources[0]), "--aliases", str(resources[1])]
+        releases.responses.clear()
+    if use_default:
+        args += ["--use-as-default"]
+    result = invoke(terminal, *args)
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    preferences = invoke(terminal, "config", "show").stdout
+    assert f"vendor: {'google' if use_default else 'apple'}" in preferences
+    assert "skin-tone: dark" in preferences
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == (
+        "google" if use_default else "apple"
+    )
+
+
+def test_select_existing_default_without_downloading_or_updating(
+    resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    before = Store().installed()
+    releases.responses.clear()
+    result = invoke(terminal, "install", "--vendor", "google", "--use-as-default")
+    assert result.exit_code == 0, result.output
+    assert "already installed" in result.stderr
+    assert result.stdout == ""
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    assert Store().installed() == before
+
+
+def test_first_install_and_successful_update_can_set_default(
+    resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    result = invoke(terminal, "install", "--vendor", "apple", "--use-as-default")
+    assert result.exit_code == 0, result.output
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+    assert (
+        invoke(terminal, "install", "--vendor", "google", "--use-as-default").exit_code
+        == 0
+    )
+    releases(build(resources, tmp_path, "resources-v2"))
+    result = invoke(
+        terminal, "install", "--vendor", "apple", "--update", "--use-as-default"
+    )
+    assert result.exit_code == 0, result.output
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+    assert "apple: resources-v2 (default)" in invoke(terminal, "status").stdout
+
+
+@pytest.mark.parametrize("answer,exit_code", [("google", 0), ("google,apple", 2)])
+def test_interactive_install_default_requires_single_selection(
+    answer, exit_code, resources, tmp_path, terminal, releases, monkeypatch
+):
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    releases(build(resources, tmp_path))
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    result = terminal.invoke(cli, ["install", "--use-as-default"], input=answer + "\n")
+    assert result.exit_code == exit_code, result.output
+    if exit_code == 0:
+        assert "vendor: google" in invoke(terminal, "config", "show").stdout
+    else:
+        assert "exactly one vendor" in result.stderr
+        assert "No vendors installed" in invoke(terminal, "status").stderr
+
+
+@pytest.mark.parametrize("update", [False, True])
+def test_failed_install_does_not_change_requested_default(
+    update, resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    vendors = ["--vendor", "google"]
+    if update:
+        vendors += ["--vendor", "apple"]
+    assert invoke(terminal, "install", *vendors).exit_code == 0
+    assert invoke(terminal, "config", "set", "vendor", "google").exit_code == 0
+    before = Store().config.read_bytes()
+    next_release = build(resources, tmp_path, "resources-v2")
+    tamper_bundle(next_release, "png-crc")
+    releases(next_release)
+    args = ["install", "--vendor", "apple", "--use-as-default"]
+    if update:
+        args += ["--update"]
+    result = invoke(terminal, *args)
+    assert result.exit_code != 0 and "apple" in result.stderr
+    assert Store().config.read_bytes() == before
+    assert "vendor: google" in invoke(terminal, "config", "show").stdout
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [("--all",), ("--vendor", "apple", "--vendor", "google"), ("--update",)],
+)
+def test_default_install_rejects_multiple_selected_vendors(
+    selection, resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    before = Store().installed()
+    releases.responses.clear()
+    result = invoke(terminal, "install", *selection, "--use-as-default")
+    assert result.exit_code == 2, result.output
+    assert "exactly one vendor" in result.stderr
+    assert result.stdout == ""
+    assert Store().installed() == before
+    assert "vendor: apple" in invoke(terminal, "config", "show").stdout
+
+
+@pytest.mark.parametrize(
+    "system,vendor", [("Darwin", "apple"), ("Windows", "windows"), ("Linux", "google")]
+)
+def test_setup_selects_os_vendor(
+    system, vendor, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    import shutil
+
+    dataset, _ = resources
+    shutil.copytree(dataset / "images/apple", dataset / "images/windows")
+    records = json.loads((dataset / "vendors/apple.json").read_text())
+    for record in records:
+        record["source"]["vendor"] = "windows"
+        record["image_path"] = str(
+            dataset / "images/windows" / Path(record["image_path"]).name
+        )
+    (dataset / "vendors/windows.json").write_text(json.dumps(records))
+    releases(build(resources, tmp_path, vendors=("apple", "google", "windows")))
+    monkeypatch.setattr(platform, "system", lambda: system)
+    result = invoke(terminal, "setup", "--yes")
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert f"{vendor}: resources-v1 (default)" in invoke(terminal, "status").stdout
+
+
+@pytest.mark.parametrize("answer,success", [("y", True), ("n", False)])
+def test_setup_confirms_before_download(
+    answer, success, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    if success:
+        releases(build(resources, tmp_path))
+    result = terminal.invoke(cli, ["setup"], input=answer + "\n")
+    assert (result.exit_code == 0) == success, result.output
+    assert "apple" in result.stderr
+    assert result.stdout == ""
+    if not success:
+        assert "No vendors installed" in invoke(terminal, "status").stderr
+
+
+def test_setup_requires_yes_when_unattended(terminal, monkeypatch):
+    import platform
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    result = invoke(terminal, "setup")
+    assert result.exit_code != 0
+    assert "--yes" in result.stderr and result.stdout == ""
+
+
+@pytest.mark.parametrize("answer,success", [("google", True), ("google,apple", False)])
+def test_unknown_os_setup_uses_single_vendor_picker(
+    answer, success, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from click.testing import _NamedTextIOWrapper
+    from emoji_dataset.cli import cli
+
+    monkeypatch.setattr(platform, "system", lambda: "Unknown")
+    for args in [("setup",), ("setup", "--yes")]:
+        result = invoke(terminal, *args)
+        assert result.exit_code != 0 and "emoji install --vendor" in result.stderr
+    releases(build(resources, tmp_path))
+    monkeypatch.setattr(_NamedTextIOWrapper, "isatty", lambda self: True)
+    result = terminal.invoke(cli, ["setup", "--yes"], input=answer + "\n")
+    assert (result.exit_code == 0) == success, result.output
+    assert result.stdout == ""
+    if success:
+        assert "google: resources-v1 (default)" in invoke(terminal, "status").stdout
+        assert "apple:" not in invoke(terminal, "status").stdout
+    else:
+        assert "exactly one vendor" in result.stderr
+        assert "No vendors installed" in invoke(terminal, "status").stderr
+
+
+@pytest.mark.parametrize("system", ["Darwin", "Unknown"])
+@pytest.mark.parametrize("default", ["apple", "google", None])
+def test_setup_existing_vendor_is_noop(
+    system, default, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from emoji_dataset.store import Store
+
+    monkeypatch.setattr(platform, "system", lambda: system)
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "google", "--vendor", "apple").exit_code
+        == 0
+    )
+    assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
+    if default is None:
+        assert invoke(terminal, "uninstall", "--vendor", "google").exit_code == 0
+    else:
+        assert invoke(terminal, "config", "set", "vendor", default).exit_code == 0
+    store = Store()
+    before = store.installed()
+    preferences = store.config.read_bytes()
+    releases.responses.clear()
+    for args in [("setup",), ("setup", "--yes")]:
+        result = invoke(terminal, *args)
+        assert result.exit_code == 0, result.output
+        assert result.stdout == ""
+        expected = (
+            "apple is already installed" if system == "Darwin" else "Already set up"
+        )
+        assert expected in result.stderr
+        assert store.installed() == before
+        assert store.config.read_bytes() == preferences
+
+
+@pytest.mark.parametrize("yes", [False, True])
+def test_setup_rejects_other_installed_vendor(
+    yes, resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from emoji_dataset.store import Store
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "google").exit_code == 0
+    store = Store()
+    before = store.installed()
+    preferences = store.config.read_bytes() if store.config.exists() else None
+    releases.responses.clear()
+    result = invoke(terminal, "setup", *(["--yes"] if yes else []))
+    assert result.exit_code != 0, result.output
+    assert "emoji install --vendor apple --use-as-default" in result.stderr
+    assert result.stdout == ""
+    assert store.installed() == before
+    assert (store.config.read_bytes() if store.config.exists() else None) == preferences
+
+
+def test_setup_sets_default_preserving_other_preferences(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from emoji_dataset.store import Store, atomic_json
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    atomic_json(Store().config, {"vendor": None, "skin-tone": "dark"})
+    releases(build(resources, tmp_path))
+    result = invoke(terminal, "setup", "--yes")
+    assert result.exit_code == 0, result.output
+    preferences = invoke(terminal, "config", "show").stdout
+    assert "vendor: apple" in preferences
+    assert "skin-tone: dark" in preferences
+
+
+def test_failed_setup_preserves_preferences(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import platform
+    from emoji_dataset.store import Store, atomic_json
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    store = Store()
+    atomic_json(store.config, {"vendor": None, "skin-tone": "dark"})
+    before = store.config.read_bytes()
+    folder = build(resources, tmp_path)
+    tamper_bundle(folder, "png-crc")
+    releases(folder)
+    result = invoke(terminal, "setup", "--yes")
+    assert result.exit_code != 0 and "apple" in result.stderr
+    assert store.config.read_bytes() == before
+    assert store.installed() == {}
+
+
+@pytest.mark.parametrize("vendors", [("google",), ("google", "apple")])
+def test_update_only_installed_vendors(
+    vendors, resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    selection = [argument for vendor in vendors for argument in ("--vendor", vendor)]
+    assert invoke(terminal, "install", *selection).exit_code == 0
+    releases(build(resources, tmp_path, "resources-v2", vendors=vendors))
+    result = invoke(terminal, "install", "--update")
+    assert result.exit_code == 0, result.output
+    assert set(Store().installed()) == set(vendors)
+    assert all(
+        record["release"] == "resources-v2" for record in Store().installed().values()
+    )
+    assert "google: resources-v2 (default)" in invoke(terminal, "status").stdout
+
+
+def test_update_without_installed_vendors_gives_setup_instructions(terminal):
+    result = invoke(terminal, "install", "--update")
+    assert result.exit_code != 0, result.output
+    assert "No vendors installed" in result.stderr
+    assert "emoji setup or emoji install --vendor VENDOR" in result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("options", [("--update", "--all"), ("--all", "--update")])
+def test_install_rejects_update_all(terminal, options):
+    result = invoke(terminal, "install", *options)
+    assert result.exit_code == 2
+    assert "Use --update without --all" in result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize(
+    "options", [("--vendor", "apple", "--all"), ("--all", "--vendor", "apple")]
+)
+def test_install_rejects_all_with_vendor(terminal, options):
+    result = invoke(terminal, "install", *options)
+    assert result.exit_code == 2
+    assert "Choose --all or --vendor" in result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "--update",
+        "--use-as-default",
+        "--vendor",
+        "--all",
+        "--local-override",
+        "--local-overidde",
+        "--aliases",
+        "--release",
+    ],
+)
+def test_setup_rejects_install_options(terminal, option):
+    result = invoke(terminal, "setup", option)
+    assert result.exit_code == 2 and "No such option" in result.stderr
+    assert option not in invoke(terminal, "setup", "--help").stdout
+
+
+def test_uninstall_nondefault_preserves_other_vendor_and_shared_index(
+    resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    assert invoke(terminal, "config", "set", "vendor", "apple").exit_code == 0
+    assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
+    store = Store()
+    original = Path(invoke(terminal, "grinning").stdout.strip())
+    before = original.read_bytes()
+    preferences = store.config.read_bytes()
+    index = store.data / "indexes" / (store.installed()["apple"]["index"] + ".json")
+    shared = index.read_bytes()
+    releases.responses.clear()
+    result = invoke(terminal, "uninstall", "--vendor", "google")
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert "google" in result.stderr
+    assert not (store.data / "vendors/google").exists()
+    assert original.read_bytes() == before
+    assert store.config.read_bytes() == preferences
+    assert index.read_bytes() == shared
+    assert invoke(terminal, "grinning").stdout.strip() == str(original)
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_uninstall_default_requires_new_selection(
+    explicit, resources, tmp_path, terminal, releases
+):
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    removed, remaining = ("google", "apple") if explicit else ("apple", "google")
+    if explicit:
+        assert invoke(terminal, "config", "set", "vendor", removed).exit_code == 0
+    assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
+    result = invoke(terminal, "uninstall", "--vendor", removed)
+    assert result.exit_code == 0, result.output
+    assert "emoji config set vendor" in result.stderr
+    preferences = invoke(terminal, "config", "show").stdout
+    assert "vendor: (unset)" in preferences and "skin-tone: dark" in preferences
+    assert "(default)" not in invoke(terminal, "status").stdout
+    lookup = invoke(terminal, "wave")
+    assert lookup.exit_code != 0 and lookup.stdout == ""
+    assert "emoji config set vendor" in lookup.stderr
+    assert invoke(terminal, "wave", "--vendor", remaining).exit_code == 0
+    assert invoke(terminal, "config", "set", "vendor", remaining).exit_code == 0
+    assert invoke(terminal, "wave").exit_code == 0
+
+
+def test_uninstall_multiple_vendors_and_absent_vendor_are_offline_noops(
+    resources, tmp_path, terminal, releases
+):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    releases.responses.clear()
+    result = invoke(
+        terminal,
+        "uninstall",
+        "--vendor",
+        "apple",
+        "--vendor",
+        "google",
+        "--vendor",
+        "apple",
+    )
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    store = Store()
+    assert store.installed() == {}
+    assert not list((store.data / "indexes").glob("*.json"))
+    before = store.config.read_bytes()
+    result = invoke(terminal, "uninstall", "--vendor", "apple")
+    assert result.exit_code == 0, result.output
+    assert store.config.read_bytes() == before
+
+
+@pytest.mark.parametrize("args", [(), ("--all",), ("--vendor", "unknown")])
+def test_uninstall_requires_explicit_vendor(terminal, args):
+    result = invoke(terminal, "uninstall", *args)
+    assert result.exit_code == 2 and result.stdout == ""
+
+
+def test_uninstall_config_failure_restores_artwork(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import os
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    assert invoke(terminal, "config", "set", "vendor", "apple").exit_code == 0
+    image = Path(invoke(terminal, "grinning").stdout.strip())
+    store = Store()
+    before = store.config.read_bytes()
+    real_replace = os.replace
+
+    def fail_config(source, destination):
+        if Path(destination) == store.config:
+            raise OSError("simulated config failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", fail_config)
+    result = invoke(terminal, "uninstall", "--vendor", "apple")
+    assert result.exit_code != 0 and "simulated config failure" in result.stderr
+    assert store.config.read_bytes() == before
+    assert image.read_bytes() == png()
+    assert invoke(terminal, "grinning").stdout.strip() == str(image)
+
+
+def test_uninstall_deletes_only_unused_indexes(resources, tmp_path, terminal, releases):
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    mappings = json.loads(resources[1].read_text())
+    mappings[0]["aliases"].append("new_alias")
+    resources[1].write_text(json.dumps(mappings))
+    releases(build(resources, tmp_path, "resources-v2"))
+    assert invoke(terminal, "install", "--vendor", "google").exit_code == 0
+    store = Store()
+    old_index = store.data / "indexes" / (store.installed()["apple"]["index"] + ".json")
+    new_index = (
+        store.data / "indexes" / (store.installed()["google"]["index"] + ".json")
+    )
+    assert old_index != new_index
+    assert invoke(terminal, "uninstall", "--vendor", "apple").exit_code == 0
+    assert not old_index.exists() and new_index.is_file()
+    assert invoke(terminal, "new_alias", "--vendor", "google").exit_code == 0
+
+
+def test_uninstall_failure_continues_other_vendors(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import os
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    store = Store()
+    real_replace = os.replace
+
+    def fail_apple(source, destination):
+        if Path(source) == store.data / "vendors/apple":
+            raise OSError("simulated removal failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", fail_apple)
+    result = invoke(terminal, "uninstall", "--vendor", "apple", "--vendor", "google")
+    assert result.exit_code != 0 and "simulated removal failure" in result.stderr
+    assert list(store.installed()) == ["apple"]
+    assert invoke(terminal, "grinning").exit_code == 0
+
+
+def test_uninstall_cleanup_failure_is_a_warning(
+    resources, tmp_path, terminal, releases, monkeypatch
+):
+    import shutil
+    from emoji_dataset.store import Store
+
+    releases(build(resources, tmp_path))
+    assert (
+        invoke(terminal, "install", "--vendor", "apple", "--vendor", "google").exit_code
+        == 0
+    )
+    real_rmtree = shutil.rmtree
+
+    def fail_cleanup(path, *args, **kwargs):
+        if Path(path).name.startswith(".google-removed-"):
+            raise OSError("simulated cleanup failure")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", fail_cleanup)
+    result = invoke(terminal, "uninstall", "--vendor", "google")
+    assert result.exit_code == 0, result.output
+    assert (
+        "cleanup failed" in result.stderr
+        and "simulated cleanup failure" in result.stderr
+    )
+    assert list(Store().installed()) == ["apple"]
+    assert invoke(terminal, "grinning").exit_code == 0
+
+
 def test_publication_failure_rolls_back_old_artwork(
     resources, tmp_path, terminal, releases, monkeypatch
 ):
@@ -614,7 +1440,7 @@ def test_missing_vendor_artwork_never_falls_back(
     )
     result = invoke(terminal, "grinning", "--vendor", "google")
     assert result.exit_code != 0 and result.stdout == "" and "google" in result.stderr
-    assert invoke(terminal, "list", "grinning", "--vendor", "google").stdout == ""
+    assert invoke(terminal, "list", "happy_face", "--vendor", "google").stdout == ""
 
 
 def test_corrupt_index_rejects_install_with_actionable_error(

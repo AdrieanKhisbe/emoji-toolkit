@@ -10,6 +10,7 @@ dependencies = [
     "requests>=2.32,<3.0",
     "pillow (>=12.3.0,<13.0.0)",
     "click>=8.2,<9",
+    "portalocker[win32]>=4.3,<5",
 ]
 
 [project.scripts]

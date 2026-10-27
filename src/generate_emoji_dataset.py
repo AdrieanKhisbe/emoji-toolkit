@@ -1,11 +1,8 @@
 """Refresh the Unicode emoji index and explicitly identified vendor artwork."""
 
 import argparse
-import base64
 import copy
-import fcntl
 import hashlib
-import io
 import json
 import os
 import shutil
@@ -16,7 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-from PIL import Image
+import portalocker
+from emoji_dataset.format import png_preview
 
 from emoji_sources import (
     HttpClient,
@@ -29,16 +27,6 @@ from emoji_sources import (
 )
 
 MAX_JSON_BYTES = 100_000_000
-
-
-def thumbnail_data_uri(data):
-    """Encode a PNG preview without changing the original artwork."""
-    with Image.open(io.BytesIO(data)) as original:
-        preview = original.convert("RGBA")
-        preview.thumbnail((72, 72), Image.Resampling.LANCZOS)
-        buffer = io.BytesIO()
-        preview.save(buffer, format="PNG", optimize=True)
-    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
 def load_entries(output):
@@ -95,7 +83,7 @@ def write_dataset(staged, entries):
                 data = (staged / relative).read_bytes()
                 # Some indexed legacy .png files are GIFs. Preserve their bytes
                 # and render their first frame as PNG; new downloads stay PNG-only.
-                artwork["data_uri"] = thumbnail_data_uri(data)
+                artwork["data_uri"] = png_preview(data)[0]
             source = artwork.setdefault(
                 "source",
                 {
@@ -254,7 +242,7 @@ def refresh_vendor(output, entries, index_metadata, catalog, http, selected):
                         continue
                     entry[field] = {
                         "image_path": str(output / relative),
-                        "data_uri": thumbnail_data_uri(retained),
+                        "data_uri": png_preview(retained)[0],
                     }
                 continue
             relative = paths[key]
@@ -264,7 +252,7 @@ def refresh_vendor(output, entries, index_metadata, catalog, http, selected):
             destination.write_bytes(data)
             entry[f"{catalog.vendor}_emoji"] = {
                 "image_path": str(output / relative),
-                "data_uri": thumbnail_data_uri(data),
+                "data_uri": png_preview(data)[0],
                 "source": {
                     "vendor": catalog.vendor,
                     "release": catalog.release,
@@ -328,7 +316,7 @@ def main(argv=None):
             raise ValueError("--cache-dir must be outside --output")
         args.output.parent.mkdir(parents=True, exist_ok=True)
         lock = args.output.with_name(f".{args.output.name}-refresh.lock").open("a")
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        portalocker.lock(lock, portalocker.LOCK_EX | portalocker.LOCK_NB)
         backup = args.output.with_name(f".{args.output.name}-previous")
         if backup.exists():
             raise OSError(
@@ -381,7 +369,12 @@ def main(argv=None):
                         )
                         break
         return 1 if errors else 0
-    except (requests.RequestException, ValueError, OSError) as error:
+    except (
+        requests.RequestException,
+        ValueError,
+        OSError,
+        portalocker.exceptions.LockException,
+    ) as error:
         print(f"Regeneration failed: {error}", file=sys.stderr)
         return 1
     finally:

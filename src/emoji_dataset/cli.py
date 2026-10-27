@@ -2,6 +2,7 @@
 
 from contextlib import ExitStack, contextmanager, nullcontext
 import sys
+import platform
 import tempfile
 from pathlib import Path
 import zipfile
@@ -12,8 +13,9 @@ import requests
 
 from .downloads import ReleaseClient
 from .local import GEMOJI_URL, LocalDataset
-from .format import TONES, VENDORS, shortcode
+from .format import TONES, VENDORS, shortcode, sized_data_url
 from .store import Store, atomic_json
+from .unicode import display_emoji
 
 
 @contextmanager
@@ -38,11 +40,26 @@ def operation(*, write: bool = False, lock: bool = True) -> Iterator[Store]:
 @click.option("--vendor", type=click.Choice(VENDORS))
 @click.option("--url", "--data-url", "as_url", is_flag=True)
 @click.option("--url-file", is_flag=True)
+@click.option(
+    "--size",
+    type=click.IntRange(1, 1024),
+    help="Fit an on-demand PNG preview within SIZE×SIZE pixels (requires --url).",
+)
 @click.option("--skin-tone", type=click.Choice(TONES))
 def lookup(
-    alias: str, vendor: str | None, as_url: bool, url_file: bool, skin_tone: str | None
+    alias: str,
+    vendor: str | None,
+    as_url: bool,
+    url_file: bool,
+    size: int | None,
+    skin_tone: str | None,
 ) -> None:
     """Print an absolute PNG path (or preview URL) for a GitHub shortcode."""
+    if size is not None:
+        if url_file:
+            raise click.UsageError("--size cannot be combined with --url-file")
+        if not as_url:
+            raise click.UsageError("--size requires --url or --data-url")
     if as_url and url_file:
         raise click.UsageError("Choose either --url or --url-file")
     with operation() as store:
@@ -67,13 +84,23 @@ def lookup(
         if key not in records:
             raise ValueError(f"No {vendor} artwork for {alias}.")
         path = store.data / "vendors" / vendor / records[key]["filename"]
-        if as_url or url_file:
+        if size is None and (as_url or url_file):
             path = path.with_suffix(".url")
         if not path.is_file():
             raise ValueError(
                 f"Missing artwork. Run emoji install --vendor {vendor} --update."
             )
-        click.echo(path.read_text() if as_url else str(path))
+        if size is not None:
+            url, dimensions = sized_data_url(path, size)
+            if size > max(dimensions):
+                click.echo(
+                    f"⚠️ Requested size {size} exceeds original artwork "
+                    f"({dimensions[0]}×{dimensions[1]}); keeping original dimensions.",
+                    err=True,
+                )
+            click.echo(url)
+        else:
+            click.echo(path.read_text() if as_url else str(path))
 
 
 class EmojiGroup(click.Group):
@@ -104,11 +131,38 @@ def cli() -> None:
     """Emoji artwork for terminal tools. Lookup: emoji SHORTCODE [OPTIONS]."""
 
 
+cli.add_command(lookup)
+cli.add_command(lookup, "get")
+
+
+def pick_vendors(*, single: bool = False) -> list[str]:
+    if not sys.stdin.isatty():
+        raise ValueError("Select a vendor: emoji install --vendor apple")
+    click.echo("📦 Available vendors: " + ", ".join(VENDORS), err=True)
+    if single:
+        vendor = click.prompt("Select vendor", err=True)
+        if vendor not in VENDORS:
+            raise ValueError(
+                "Choose exactly one vendor identifier from the displayed list"
+            )
+        return [vendor]
+    answer = click.prompt("Select vendors (comma-separated)", err=True)
+    selected = list(dict.fromkeys(part.strip() for part in answer.split(",")))
+    if any(name not in VENDORS for name in selected):
+        raise ValueError("Choose vendor identifiers from the displayed list")
+    return selected
+
+
 @cli.command()
 @click.option("--vendor", multiple=True, type=click.Choice(VENDORS))
 @click.option("--release", "tag")
 @click.option("--all", "all_vendors", is_flag=True)
 @click.option("--update", is_flag=True)
+@click.option(
+    "--use-as-default",
+    is_flag=True,
+    help="Set the single selected vendor as default after successful installation.",
+)
 @click.option(
     "--local-override",
     "--local-overidde",
@@ -125,10 +179,15 @@ def install(
     tag: str | None,
     all_vendors: bool,
     update: bool,
+    use_as_default: bool,
     local_override: Path | None,
     aliases: Path | None,
 ) -> None:
     """Install or explicitly update vendor artwork from a resource release."""
+    if update and all_vendors:
+        raise click.UsageError(
+            "Use --update without --all to refresh installed vendors"
+        )
     if all_vendors and vendor:
         raise click.UsageError("Choose --all or --vendor")
     if local_override and tag:
@@ -142,18 +201,16 @@ def install(
         if not selected:
             if update:
                 selected = list(installed)
-            elif sys.stdin.isatty():
-                click.echo("📦 Available vendors: " + ", ".join(VENDORS), err=True)
-                answer = click.prompt("Select vendors (comma-separated)", err=True)
-                selected = list(
-                    dict.fromkeys(part.strip() for part in answer.split(","))
-                )
-                if any(name not in VENDORS for name in selected):
+                if not selected:
                     raise ValueError(
-                        "Choose vendor identifiers from the displayed list"
+                        "No vendors installed. Run emoji setup or emoji install --vendor VENDOR."
                     )
+            elif sys.stdin.isatty():
+                selected = pick_vendors()
         if not selected:
             raise ValueError("Select a vendor: emoji install --vendor apple")
+        if use_as_default and len(selected) != 1:
+            raise click.UsageError("--use-as-default requires exactly one vendor")
         pending = []
         for name in selected:
             if name in installed and not update:
@@ -164,6 +221,8 @@ def install(
             else:
                 pending.append(name)
         if not pending:
+            if use_as_default:
+                save_preference("vendor", selected[0])
             return
         client = ReleaseClient()
         local = None
@@ -224,6 +283,83 @@ def install(
                 click.echo(f"❌ {name}: {error}", err=True)
         if failures:
             raise ValueError("Installation failed for: " + ", ".join(failures))
+        if use_as_default:
+            save_preference("vendor", selected[0])
+
+
+@cli.command()
+@click.option("--yes", is_flag=True, help="Skip confirmation for initial installation.")
+@click.pass_context
+def setup(
+    ctx: click.Context,
+    yes: bool,
+) -> None:
+    """Install the OS vendor: Apple on macOS, Windows on Windows, Google on Linux."""
+    with operation(lock=False) as store:
+        os_vendor = {"Darwin": "apple", "Windows": "windows", "Linux": "google"}.get(
+            platform.system()
+        )
+        with store.locked(exclusive=False):
+            installed = store.installed()
+        if os_vendor in installed:
+            click.echo(f"📦 {os_vendor} is already installed.", err=True)
+            return
+        if installed:
+            if os_vendor is None:
+                click.echo("📦 Already set up: " + ", ".join(installed) + ".", err=True)
+                return
+            raise ValueError(
+                "Other vendors are already installed. Run "
+                f"emoji install --vendor {os_vendor} --use-as-default."
+            )
+        selected = [os_vendor] if os_vendor else pick_vendors(single=True)
+        if not yes:
+            if not sys.stdin.isatty():
+                raise click.UsageError("Unattended setup requires --yes")
+            click.confirm(
+                f"📥 Install artwork for {selected[0]}?",
+                default=False,
+                abort=True,
+                err=True,
+            )
+    ctx.invoke(
+        install,
+        vendor=tuple(selected),
+        all_vendors=False,
+        update=False,
+        use_as_default=True,
+    )
+
+
+@cli.command()
+@click.option("--vendor", multiple=True, required=True, type=click.Choice(VENDORS))
+def uninstall(vendor: tuple[str, ...]) -> None:
+    """Remove selected vendors without prompting; keep other installed artwork."""
+    with operation(write=True) as store:
+        failures = []
+        for name in dict.fromkeys(vendor):
+            try:
+                was_default = store.default_vendor() == name
+                removed, warnings = store.uninstall(name)
+                if removed:
+                    click.echo(f"📦 Removed {name}", err=True)
+                    if was_default:
+                        click.echo(
+                            "⚙️ Default vendor cleared. Select an installed vendor with "
+                            "emoji config set vendor VENDOR.",
+                            err=True,
+                        )
+                else:
+                    click.echo(
+                        f"📦 {name} is not installed; nothing to remove.", err=True
+                    )
+                for warning in warnings:
+                    click.echo(f"⚠️ {warning}", err=True)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                failures.append(name)
+                click.echo(f"❌ {name}: {error}", err=True)
+        if failures:
+            raise ValueError("Uninstall failed for: " + ", ".join(failures))
 
 
 @cli.group()
@@ -280,8 +416,38 @@ def config_show() -> None:
 @cli.command("list")
 @click.argument("query", default="")
 @click.option("--vendor", type=click.Choice(VENDORS))
-def list_aliases(query: str, vendor: str | None) -> None:
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(("plain", "colon", "emoji")),
+    help="List format (default: plain).",
+)
+@click.option(
+    "--emoji", "with_emoji", is_flag=True, help="Shortcut for --format emoji."
+)
+@click.option(
+    "--colon", "with_colon", is_flag=True, help="Shortcut for --format colon."
+)
+def list_aliases(
+    query: str,
+    vendor: str | None,
+    output_format: str | None,
+    with_emoji: bool,
+    with_colon: bool,
+) -> None:
     """List available shortcodes matching an alias or emoji name."""
+    formats = {
+        value
+        for value in (
+            output_format,
+            "emoji" if with_emoji else None,
+            "colon" if with_colon else None,
+        )
+        if value is not None
+    }
+    if len(formats) > 1:
+        raise click.UsageError("Choose one list format: plain, colon, or emoji")
+    selected_format = next(iter(formats), "plain")
     with operation() as store:
         index, records = store.collection(store.vendor(vendor))
         query = query.casefold()
@@ -291,7 +457,13 @@ def list_aliases(query: str, vendor: str | None) -> None:
                 query in text.casefold()
                 for text in (alias, entry["name"], entry["cldr_name"])
             ):
-                click.echo(alias)
+                if selected_format == "colon":
+                    click.echo(f":{alias}:")
+                elif selected_format == "emoji":
+                    emoji = entry.get("emoji") or display_emoji(key)
+                    click.echo(f"{emoji} {alias}")
+                else:
+                    click.echo(alias)
 
 
 @cli.command()

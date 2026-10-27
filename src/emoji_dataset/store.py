@@ -1,17 +1,19 @@
 """Local resources and preferences; callers only see committed installations."""
 
 from contextlib import contextmanager
-import fcntl
 import io
 import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import tempfile
 import time
 import uuid
 from typing import Any, Iterator
 import zipfile
+
+import portalocker
 
 from .format import (
     SCHEMA,
@@ -37,6 +39,19 @@ def atomic_json(path: Path, value: Any) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def remove_artwork(path: Path) -> None:
+    """Remove installed artwork, clearing Windows' read-only bit when necessary."""
+
+    def remove_readonly(function, filename, exc_info):
+        error = exc_info[1]
+        if not isinstance(error, PermissionError):
+            raise error
+        os.chmod(filename, os.stat(filename).st_mode | stat.S_IWRITE)
+        function(filename)
+
+    shutil.rmtree(path, onerror=remove_readonly)
+
+
 class Store:
     def __init__(self) -> None:
         self.data = (
@@ -52,8 +67,16 @@ class Store:
     def locked(self, *, exclusive: bool = True) -> Iterator[None]:
         self.data.mkdir(parents=True, exist_ok=True)
         with (self.data / ".lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
-            yield
+            try:
+                portalocker.lock(
+                    lock, portalocker.LOCK_EX if exclusive else portalocker.LOCK_SH
+                )
+            except portalocker.exceptions.LockException as error:
+                raise OSError(f"Could not lock artwork store: {error}") from error
+            try:
+                yield
+            finally:
+                portalocker.unlock(lock)
 
     def preferences(self) -> dict[str, Any]:
         return read_json(self.config) if self.config.exists() else {}
@@ -67,10 +90,19 @@ class Store:
         return dict(sorted(result.items(), key=lambda item: item[1]["installed_at"]))
 
     def default_vendor(self) -> str | None:
-        return self.preferences().get("vendor") or next(iter(self.installed()), None)
+        preferences = self.preferences()
+        # Explicitly cleared defaults must not fall back to another vendor.
+        if "vendor" in preferences:
+            return preferences["vendor"]
+        return next(iter(self.installed()), None)
 
     def vendor(self, requested: str | None) -> str:
         vendor = requested or os.environ.get("EMOJI_VENDOR") or self.default_vendor()
+        if not vendor and self.installed():
+            raise ValueError(
+                "No default vendor selected. Run emoji config set vendor VENDOR "
+                "or select artwork with --vendor."
+            )
         if not vendor or vendor not in self.installed():
             raise ValueError(
                 f"Vendor {vendor or '(none)'} is not installed. Run emoji install --vendor {vendor or 'apple'}."
@@ -81,6 +113,47 @@ class Store:
         installation = self.installed()[vendor]
         index = read_json(self.data / "indexes" / f"{installation['index']}.json")
         return index, installation["records"]
+
+    def uninstall(self, vendor: str) -> tuple[bool, list[str]]:
+        """Remove a vendor under the caller's exclusive lock; preserve shared data."""
+        if vendor not in VENDORS:
+            raise ValueError(f"Unknown vendor: {vendor}")
+        if vendor not in self.installed():
+            return False, []
+        parent = self.data / "vendors"
+        backup = parent / f".{vendor}-previous"
+        if backup.exists():
+            raise ValueError(
+                f"Recovery copy exists: {backup}. Restore it before retrying."
+            )
+        preferences = self.preferences()
+        clear_default = self.default_vendor() == vendor
+        destination = parent / vendor
+        removed = parent / f".{vendor}-removed-{uuid.uuid4().hex}"
+        os.replace(destination, removed)
+        try:
+            if clear_default:
+                preferences["vendor"] = None
+                atomic_json(self.config, preferences)
+        except BaseException:
+            os.replace(removed, destination)
+            raise
+        try:
+            remove_artwork(removed)
+        except OSError as error:
+            return True, [f"Removed {vendor}; cleanup failed at {removed}: {error}"]
+        # Include recovery copies when retaining indexes, not only active vendors.
+        warnings = []
+        try:
+            needed = {
+                read_json(path)["index"] for path in parent.glob("*/installation.json")
+            }
+            for path in (self.data / "indexes").glob("*.json"):
+                if path.stem not in needed:
+                    path.unlink()
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            warnings.append(f"Removed {vendor}; index cleanup failed: {error}")
+        return True, warnings
 
     def install(
         self, vendor: str, release: str, index_bytes: bytes, bundle: bytes
@@ -185,7 +258,7 @@ class Store:
                 # Publication is complete. Cleanup failure is a warning, not
                 # an unsuccessful update or an interrupted-publication marker.
                 try:
-                    shutil.rmtree(obsolete)
+                    remove_artwork(obsolete)
                 except OSError as error:
                     return f"Installed {vendor}; cleanup failed at {obsolete}: {error}"
         return None
