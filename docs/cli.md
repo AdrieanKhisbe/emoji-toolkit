@@ -32,8 +32,8 @@ emoji setup --yes
 emoji install --update                 # refresh installed vendors only
 ```
 
-Native Windows execution currently requires replacing the store's Unix-only
-file locking; Windows vendor selection is covered by simulated OS tests.
+Store locking supports macOS, Linux, and native Windows, including concurrent
+readers and exclusive updates. Windows dependencies are installed automatically.
 For local testing, install directly from the source dataset instead:
 
 ```sh

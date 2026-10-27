@@ -27,7 +27,7 @@ pipx install emoji-toolkit
 pip install emoji-toolkit
 ```
 
-On macOS and Linux, `emoji setup` installs the OS vendor as your default after
+On macOS, Linux, and Windows, `emoji setup` installs the OS vendor as your default after
 confirmation. If the OS vendor is already installed, setup leaves your
 installation and preferences unchanged.
 Use `emoji setup --yes` in scripts; `emoji install` lets you pick vendors yourself.

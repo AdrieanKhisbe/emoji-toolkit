@@ -1,17 +1,19 @@
 """Local resources and preferences; callers only see committed installations."""
 
 from contextlib import contextmanager
-import fcntl
 import io
 import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import tempfile
 import time
 import uuid
 from typing import Any, Iterator
 import zipfile
+
+import portalocker
 
 from .format import (
     SCHEMA,
@@ -37,6 +39,19 @@ def atomic_json(path: Path, value: Any) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def remove_artwork(path: Path) -> None:
+    """Remove installed artwork, clearing Windows' read-only bit when necessary."""
+
+    def remove_readonly(function, filename, exc_info):
+        error = exc_info[1]
+        if not isinstance(error, PermissionError):
+            raise error
+        os.chmod(filename, os.stat(filename).st_mode | stat.S_IWRITE)
+        function(filename)
+
+    shutil.rmtree(path, onerror=remove_readonly)
+
+
 class Store:
     def __init__(self) -> None:
         self.data = (
@@ -52,8 +67,16 @@ class Store:
     def locked(self, *, exclusive: bool = True) -> Iterator[None]:
         self.data.mkdir(parents=True, exist_ok=True)
         with (self.data / ".lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
-            yield
+            try:
+                portalocker.lock(
+                    lock, portalocker.LOCK_EX if exclusive else portalocker.LOCK_SH
+                )
+            except portalocker.exceptions.LockException as error:
+                raise OSError(f"Could not lock artwork store: {error}") from error
+            try:
+                yield
+            finally:
+                portalocker.unlock(lock)
 
     def preferences(self) -> dict[str, Any]:
         return read_json(self.config) if self.config.exists() else {}
@@ -116,7 +139,7 @@ class Store:
             os.replace(removed, destination)
             raise
         try:
-            shutil.rmtree(removed)
+            remove_artwork(removed)
         except OSError as error:
             return True, [f"Removed {vendor}; cleanup failed at {removed}: {error}"]
         # Include recovery copies when retaining indexes, not only active vendors.
@@ -235,7 +258,7 @@ class Store:
                 # Publication is complete. Cleanup failure is a warning, not
                 # an unsuccessful update or an interrupted-publication marker.
                 try:
-                    shutil.rmtree(obsolete)
+                    remove_artwork(obsolete)
                 except OSError as error:
                     return f"Installed {vendor}; cleanup failed at {obsolete}: {error}"
         return None

@@ -2,7 +2,6 @@
 
 import argparse
 import copy
-import fcntl
 import hashlib
 import json
 import os
@@ -14,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+import portalocker
 from emoji_dataset.format import png_preview
 
 from emoji_sources import (
@@ -316,7 +316,7 @@ def main(argv=None):
             raise ValueError("--cache-dir must be outside --output")
         args.output.parent.mkdir(parents=True, exist_ok=True)
         lock = args.output.with_name(f".{args.output.name}-refresh.lock").open("a")
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        portalocker.lock(lock, portalocker.LOCK_EX | portalocker.LOCK_NB)
         backup = args.output.with_name(f".{args.output.name}-previous")
         if backup.exists():
             raise OSError(
@@ -369,7 +369,12 @@ def main(argv=None):
                         )
                         break
         return 1 if errors else 0
-    except (requests.RequestException, ValueError, OSError) as error:
+    except (
+        requests.RequestException,
+        ValueError,
+        OSError,
+        portalocker.exceptions.LockException,
+    ) as error:
         print(f"Regeneration failed: {error}", file=sys.stderr)
         return 1
     finally:

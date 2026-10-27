@@ -275,6 +275,7 @@ def test_sized_preview_uses_original_offline(
     )
 
     # A requested size is generated from the original, not the saved preview.
+    original.with_suffix(".url").chmod(0o644)
     original.with_suffix(".url").unlink()
     result = invoke(terminal, *command, "grinning", url_flag, "--size", "128")
     assert result.exit_code == 0, result.output
@@ -324,12 +325,15 @@ def test_preferences_tones_listing_and_reserved_words(
         invoke(terminal, "install", "--vendor", "google", "--vendor", "apple").exit_code
         == 0
     )
-    assert "/google/" in invoke(terminal, "wave").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "google"
     assert invoke(terminal, "config", "set", "vendor", "apple").exit_code == 0
-    assert "/apple/" in invoke(terminal, "wave").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "apple"
     monkeypatch.setenv("EMOJI_VENDOR", "google")
-    assert "/google/" in invoke(terminal, "wave").stdout
-    assert "/apple/" in invoke(terminal, "wave", "--vendor", "apple").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == "google"
+    assert (
+        Path(invoke(terminal, "wave", "--vendor", "apple").stdout.strip()).parent.name
+        == "apple"
+    )
     assert invoke(terminal, "config", "set", "skin-tone", "dark").exit_code == 0
     assert "waving_hand_dark_skin_tone.png" in invoke(terminal, "wave").stdout
     assert (
@@ -779,8 +783,8 @@ def test_install_can_explicitly_select_default(
     preferences = invoke(terminal, "config", "show").stdout
     assert f"vendor: {'google' if use_default else 'apple'}" in preferences
     assert "skin-tone: dark" in preferences
-    assert (
-        f"/{'google' if use_default else 'apple'}/" in invoke(terminal, "wave").stdout
+    assert Path(invoke(terminal, "wave").stdout.strip()).parent.name == (
+        "google" if use_default else "apple"
     )
 
 

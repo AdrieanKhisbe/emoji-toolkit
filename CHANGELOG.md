@@ -23,6 +23,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Native Windows locking for the CLI and dataset generator, with cleanup of read-only installed artwork and Windows CI coverage.
+
 - Preserve emoji presentation selectors in `list --emoji`, including existing resource installations.
 
 ## [0.1.0] - 2026-10-04
