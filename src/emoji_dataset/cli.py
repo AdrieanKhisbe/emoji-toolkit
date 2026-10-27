@@ -15,6 +15,7 @@ from .downloads import ReleaseClient
 from .local import GEMOJI_URL, LocalDataset
 from .format import TONES, VENDORS, shortcode, sized_data_url
 from .store import Store, atomic_json
+from .unicode import display_emoji
 
 
 @contextmanager
@@ -459,8 +460,7 @@ def list_aliases(
                 if selected_format == "colon":
                     click.echo(f":{alias}:")
                 elif selected_format == "emoji":
-                    # Convert hyphen-separated hex code points into Unicode characters.
-                    emoji = "".join(chr(int(point, 16)) for point in key.split("-"))
+                    emoji = entry.get("emoji") or display_emoji(key)
                     click.echo(f"{emoji} {alias}")
                 else:
                     click.echo(alias)

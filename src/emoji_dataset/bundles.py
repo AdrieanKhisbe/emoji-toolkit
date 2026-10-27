@@ -31,6 +31,9 @@ def build_index(dataset: Path, aliases: Path) -> dict[str, Any]:
         if key in entries:
             raise ValueError(f"Duplicate Unicode sequence: {key}")
         entries[key] = {
+            "emoji": "".join(
+                chr(int(point.removeprefix("U+"), 16)) for point in entry["unicode"]
+            ),
             "name": entry["name"],
             "cldr_name": entry.get("cldr_name", entry["name"]),
         }

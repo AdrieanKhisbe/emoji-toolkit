@@ -149,5 +149,6 @@ underscores for spaces and remain stable across updates. Lookup needs no network
 Every format keeps all matching aliases in alphabetical order, one per line,
 with the same case-insensitive search and vendor filtering. Emoji are Unicode
 characters rendered by your terminal, rather than vendor images. Skin tones and
-joined sequences are retained. Conflicting format options are rejected; repeating
+joined sequences and emoji presentation selectors are retained, including with
+older resource indexes. Conflicting format options are rejected; repeating
 the same format through its shortcut is allowed. Empty results print nothing.

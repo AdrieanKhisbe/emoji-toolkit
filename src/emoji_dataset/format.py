@@ -77,6 +77,11 @@ def sized_data_url(path: Path, size: int) -> tuple[str, tuple[int, int]]:
     """Render a PNG preview without enlarging or modifying original artwork."""
     data = path.read_bytes()
     validate_png(data)
+    return png_preview(data, size)
+
+
+def png_preview(data: bytes, size: int = 72) -> tuple[str, tuple[int, int]]:
+    """Encode a PNG preview, preserving proportions and transparency."""
     with Image.open(io.BytesIO(data)) as original:
         dimensions = original.size
         image = original.convert("RGBA")
@@ -116,6 +121,11 @@ def validate_index(index: dict[str, Any]) -> None:
             or entry["base"] not in entries
         ):
             raise ValueError("Invalid emoji entry in resource index")
+        if "emoji" in entry and (
+            not isinstance(entry["emoji"], str)
+            or sequence([f"{ord(character):x}" for character in entry["emoji"]]) != key
+        ):
+            raise ValueError("Invalid display sequence in resource index")
         for tone, target in entry.get("tones", {}).items():
             if tone not in TONES or target not in entries:
                 raise ValueError("Invalid skin-tone mapping in index")

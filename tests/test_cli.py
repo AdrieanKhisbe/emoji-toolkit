@@ -433,6 +433,56 @@ def test_emoji_list_preserves_tone_and_joined_sequences(
     )
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_emoji_list_preserves_presentation_selectors(
+    legacy, resources, tmp_path, terminal, releases
+):
+    dataset, aliases = resources
+    examples = {
+        "copyright": "©️",
+        "left_right_arrow": "↔️",
+        "keycap_hash": "#️⃣",
+        "keycap_asterisk": "*️⃣",
+        "woman_health_worker": "👩‍⚕️",
+        "rainbow_flag": "🏳️‍🌈",
+        "point_up": "☝️",
+        "point_up_dark": "☝🏿",
+    }
+    entries = json.loads((dataset / "dataset.json").read_text())
+    mappings = json.loads(aliases.read_text())
+    records_path = dataset / "vendors/apple.json"
+    records = json.loads(records_path.read_text())
+    for alias, emoji in examples.items():
+        points = [f"U+{ord(character):X}" for character in emoji]
+        entries.append({"unicode": points, "name": alias, "cldr_name": alias})
+        mappings.append({"emoji": emoji, "aliases": [alias]})
+        image = dataset / "images/apple" / f"{alias}.png"
+        image.write_bytes(png())
+        records.append({**records[0], "unicode": points, "image_path": str(image)})
+    (dataset / "dataset.json").write_text(json.dumps(entries))
+    aliases.write_text(json.dumps(mappings))
+    records_path.write_text(json.dumps(records))
+    folder = build(resources, tmp_path)
+    if legacy:
+        index_path = folder / "index.json"
+        index = json.loads(index_path.read_text())
+        for entry in index["entries"].values():
+            entry.pop("emoji", None)
+        index_path.write_text(json.dumps(index))
+        manifest_path = folder / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["index"]["sha256"] = hashlib.sha256(
+            index_path.read_bytes()
+        ).hexdigest()
+        manifest_path.write_text(json.dumps(manifest))
+    releases(folder)
+    assert invoke(terminal, "install", "--vendor", "apple").exit_code == 0
+    releases.responses.clear()
+    lines = invoke(terminal, "list", "--emoji").stdout.splitlines()
+    for alias, emoji in examples.items():
+        assert f"{emoji} {alias}" in lines
+
+
 @pytest.mark.parametrize(
     "options",
     [

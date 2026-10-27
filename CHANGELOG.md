@@ -21,6 +21,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Installation instructions now use the published `emoji-toolkit` package on PyPI.
 - The README version badge links to PyPI and displays the published version.
 
+### Fixed
+
+- Preserve emoji presentation selectors in `list --emoji`, including existing resource installations.
+
 ## [0.1.0] - 2026-10-04
 
 First CLI release.
