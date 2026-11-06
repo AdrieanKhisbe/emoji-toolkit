@@ -3,7 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/emoji-toolkit)](https://pypi.org/project/emoji-toolkit/)
 [![CI](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml/badge.svg)](https://github.com/AdrieanKhisbe/emoji-toolkit/actions/workflows/tests.yml)
 [![Status: in development](https://img.shields.io/badge/status-in_development-yellow)](https://github.com/AdrieanKhisbe/emoji-toolkit/issues)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/AdrieanKhisbe/emoji-toolkit/blob/master/LICENSE)
 
 > Get emoji images or data URLs from your terminal for notifications, scripts, and everyday tools. :fishing_pole_and_fish:
 
@@ -69,11 +69,11 @@ See [viu](https://github.com/atanunq/viu),
 
 | Terminal viewer · `viu` | Colored ASCII · `ascii-image-converter` |
 | :---: | :---: |
-| <img src="docs/screenshots/viu.png" alt="Waving hand displayed with viu and a transparent background" height="320"> | <img src="docs/screenshots/ascii-image-converter.png" alt="Winking face rendered as colored ASCII art" height="320"> |
+| <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/docs/screenshots/viu.png" alt="Waving hand displayed with viu and a transparent background" height="320"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/docs/screenshots/ascii-image-converter.png" alt="Winking face rendered as colored ASCII art" height="320"> |
 
 | Desktop notification |
 | :---: |
-| <img src="docs/screenshots/notification.png" alt="Build finished notification with a party popper emoji" width="600"> |
+| <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/docs/screenshots/notification.png" alt="Build finished notification with a party popper emoji" width="600"> |
 
 Shortcodes follow GitHub aliases. Colons are optional: `smiley` and
 `:smiley:` work the same way. 😃
@@ -97,7 +97,7 @@ emoji status                           # show installed vendors and versions
 emoji uninstall --vendor twitter       # remove artwork you no longer need
 ```
 
-See [all commands and options](docs/cli.md).
+See [all commands and options](https://github.com/AdrieanKhisbe/emoji-toolkit/blob/master/docs/cli.md).
 
 ## Pick your artwork :rainbow:
 
@@ -119,11 +119,11 @@ The same 😃 `:smiley:`, drawn by each vendor:
 
 | Vendor | Apple | JoyPixels | Facebook | Google | Samsung | Twitter / X | Microsoft Windows |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Smiley | <img src="resources/dataset/images/apple/grinning%20face%20with%20big%20eyes.png" alt="Apple smiley" width="48"> | <img src="resources/dataset/images/emojione/grinning%20face%20with%20big%20eyes.png" alt="JoyPixels smiley" width="48"> | <img src="resources/dataset/images/facebook/grinning%20face%20with%20big%20eyes.png" alt="Facebook smiley" width="48"> | <img src="resources/dataset/images/google/grinning%20face%20with%20big%20eyes.png" alt="Google smiley" width="48"> | <img src="resources/dataset/images/samsung/grinning%20face%20with%20big%20eyes.png" alt="Samsung smiley" width="48"> | <img src="resources/dataset/images/twitter/grinning%20face%20with%20big%20eyes.png" alt="Twitter smiley" width="48"> | <img src="resources/dataset/images/windows/grinning%20face%20with%20big%20eyes.png" alt="Microsoft Windows smiley" width="48"> |
+| Smiley | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/apple/grinning%20face%20with%20big%20eyes.png" alt="Apple smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/emojione/grinning%20face%20with%20big%20eyes.png" alt="JoyPixels smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/facebook/grinning%20face%20with%20big%20eyes.png" alt="Facebook smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/google/grinning%20face%20with%20big%20eyes.png" alt="Google smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/samsung/grinning%20face%20with%20big%20eyes.png" alt="Samsung smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/twitter/grinning%20face%20with%20big%20eyes.png" alt="Twitter smiley" width="48"> | <img src="https://raw.githubusercontent.com/AdrieanKhisbe/emoji-toolkit/master/resources/dataset/images/windows/grinning%20face%20with%20big%20eyes.png" alt="Microsoft Windows smiley" width="48"> |
 
 ## Explore the dataset :world_map:
 
-The checked-in artwork lives in [`resources/dataset`](resources/dataset):
+The checked-in artwork lives in [`resources/dataset`](https://github.com/AdrieanKhisbe/emoji-toolkit/tree/master/resources/dataset):
 
 - `dataset.json` — the shared Unicode index.
 - `vendors/<vendor>.json` — image paths, preview data URLs, and source metadata.
@@ -132,8 +132,8 @@ The checked-in artwork lives in [`resources/dataset`](resources/dataset):
 Join vendor records to the index by their `unicode` sequence. Reading the JSON
 and images requires no Python dependencies.
 
-See [dataset maintenance](docs/dataset-maintenance.md) and
-[publishing resource bundles](docs/resource-releases.md).
+See [dataset maintenance](https://github.com/AdrieanKhisbe/emoji-toolkit/blob/master/docs/dataset-maintenance.md) and
+[publishing resource bundles](https://github.com/AdrieanKhisbe/emoji-toolkit/blob/master/docs/resource-releases.md).
 
 ## Contribute :handshake:
 
@@ -153,5 +153,5 @@ For artwork problems, include the emoji and vendor.
 
 ## License
 
-Project code is licensed under [MIT](LICENSE). Vendor artwork retains its
+Project code is licensed under [MIT](https://github.com/AdrieanKhisbe/emoji-toolkit/blob/master/LICENSE). Vendor artwork retains its
 respective copyrights and licenses; see [Emojipedia's licensing guide](https://emojipedia.org/licensing).

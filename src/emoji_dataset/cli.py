@@ -126,7 +126,7 @@ class EmojiGroup(click.Group):
 
 
 @click.group(cls=EmojiGroup, context_settings={"allow_interspersed_args": False})
-@click.version_option("0.1.0")
+@click.version_option("0.2.0")
 def cli() -> None:
     """Emoji artwork for terminal tools. Lookup: emoji SHORTCODE [OPTIONS]."""
 

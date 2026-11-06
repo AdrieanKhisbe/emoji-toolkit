@@ -3,9 +3,9 @@
 Install the program with Python 3.11+ through either tool:
 
 ```sh
-uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
+uv tool install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.2.0
 # or
-pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.1.0
+pipx install git+https://github.com/AdrieanKhisbe/emoji-toolkit.git@v0.2.0
 ```
 
 Artwork installation requires a published compatible immutable resource release;

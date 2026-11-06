@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.2.0] - 2026-11-07
+
 ### Added
 
 - `uninstall --vendor VENDOR` removes artwork offline, preserves shared resources, and clears a removed default without selecting a replacement ([#5]).
@@ -42,7 +44,8 @@ First CLI release.
 - Python package published as `emoji-toolkit`, with the `emoji` terminal command and separate resource bundles.
 - MIT license for project code; vendor artwork retains its respective copyrights and licenses.
 
-[unreleased]: https://github.com/AdrieanKhisbe/emoji-toolkit/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/AdrieanKhisbe/emoji-toolkit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/AdrieanKhisbe/emoji-toolkit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AdrieanKhisbe/emoji-toolkit/releases/tag/v0.1.0
 [#2]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/2
 [#3]: https://github.com/AdrieanKhisbe/emoji-toolkit/issues/3
